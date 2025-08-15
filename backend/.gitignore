@@ -1,0 +1,17 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.python-version
+
+.venv
+.ruff_cache
+
+celery_results.db
+crawler.sqlite
+.env
+
+.DS_Store
