@@ -1,29 +1,20 @@
-import { createAsync, query } from "@solidjs/router";
-import * as api from "~/api";
-import { usePolling } from "~/utils/polling";
+import { type Job } from "~/api";
 
 interface TaskStatusProps {
-  taskId: string;
+  job: Job;
 }
 
-const getTaskStatus = query(async (taskId: string) => {
-  return await api.getTaskStatus(taskId);
-}, "taskStatus");
-
 export default function TaskStatus(props: TaskStatusProps) {
-  const taskStatus = createAsync(() => getTaskStatus(props.taskId));
-
-  usePolling(getTaskStatus.keyFor(props.taskId));
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "SUCCESS":
-        return { backgroundColor: "#d4edda", color: "#19a239ff" };
-      case "RUNNING":
-        return { backgroundColor: "#fff3cd", color: "#bb8e06ff" };
-      default:
-        return { backgroundColor: "#f8d7da", color: "#b11f2dff" };
+  const getStatusColor = (hasOutcome: boolean) => {
+    if (hasOutcome) {
+      return { backgroundColor: "#d4edda", color: "#19a239ff" };
+    } else {
+      return { backgroundColor: "#fff3cd", color: "#bb8e06ff" };
     }
+  };
+
+  const getStatusText = (job: Job) => {
+    return job.outcome ? "COMPLETED" : "RUNNING";
   };
 
   return (
@@ -32,10 +23,10 @@ export default function TaskStatus(props: TaskStatusProps) {
         "margin-left": "8px",
         padding: "2px 6px",
         "border-radius": "4px",
-        ...getStatusColor(taskStatus()?.status || "UNKNOWN"),
+        ...getStatusColor(!!props.job.outcome),
       }}
     >
-      {taskStatus()?.status || "UNKNOWN"}
+      {getStatusText(props.job)}
     </span>
   );
 }

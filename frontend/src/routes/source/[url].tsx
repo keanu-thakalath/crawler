@@ -1,12 +1,9 @@
 import { createAsync, query, useParams } from "@solidjs/router";
-import { Suspense, For, Show, createEffect, createSignal } from "solid-js";
+import { Suspense, For, Show, createMemo } from "solid-js";
 import * as api from "~/api";
 import { usePolling } from "~/utils/polling";
 import PageItem from "~/components/PageItem";
-
-const getSourceJobs = query(async (url: string) => {
-  return await api.getSourceJobs(url);
-}, "sourceJobs");
+import TaskStatus from "~/components/TaskStatus";
 
 const getSources = query(async () => {
   return await api.getSources();
@@ -15,45 +12,33 @@ const getSources = query(async () => {
 export default function SourceDetail() {
   const params = useParams();
   const decodedUrl = decodeURIComponent(params.url);
-  const sourceJobs = createAsync(() => getSourceJobs(decodedUrl));
   const sources = createAsync(() => getSources());
-  
-  const [summarizeResult, setSummarizeResult] = createSignal<api.SummarizeJobResponse | null>(null);
 
-  usePolling(getSourceJobs.keyFor(decodedUrl));
   usePolling(getSources.key);
 
-  createEffect(async () => {
-    const jobs = sourceJobs();
-    if (!jobs) return;
+  const currentSource = createMemo(() => {
+    const allSources = sources();
+    return allSources?.find(source => source.url === decodedUrl);
+  });
 
-    // Find completed summarize job
-    const summarizeJob = jobs.find(job => job.job_type === "summarize" && job.status === "completed");
-    if (summarizeJob && !summarizeResult()) {
-      try {
-        const result = await api.getSummarizeResult(summarizeJob.id);
-        setSummarizeResult(result);
-      } catch (error) {
-        console.error("Failed to fetch summarize result:", error);
-      }
-    }
+  const summarizeResult = createMemo(() => {
+    const source = currentSource();
+    if (!source) return null;
+    
+    const summarizeJob = source.jobs.find(job => job.outcome && 'summary' in job.outcome && 'data_origin' in job.outcome);
+    return summarizeJob?.outcome as api.SummarizeJobOutcome | undefined;
   });
 
   const getJobStatus = () => {
-    const jobs = sourceJobs();
-    if (!jobs || jobs.length === 0) return "No jobs";
+    const source = currentSource();
+    if (!source || source.jobs.length === 0) return "No jobs";
     
-    const hasRunning = jobs.some(job => job.status === "running");
-    const allCompleted = jobs.every(job => job.status === "completed");
+    const hasRunning = source.jobs.some(job => !job.outcome);
+    const allCompleted = source.jobs.every(job => job.outcome);
     
     if (hasRunning) return "Processing";
     if (allCompleted) return "Completed";
     return "Pending";
-  };
-
-  const getCurrentSource = () => {
-    const allSources = sources();
-    return allSources?.find(source => source.url === decodedUrl);
   };
 
   return (
@@ -84,14 +69,17 @@ export default function SourceDetail() {
           </span>
         </p>
 
-        <Show when={sourceJobs() && sourceJobs()!.length > 0}>
+        <Show when={currentSource()?.jobs && currentSource()!.jobs.length > 0}>
           <section>
             <p><strong>Jobs:</strong></p>
             <ul>
-              <For each={sourceJobs()}>
+              <For each={currentSource()!.jobs}>
                 {(job) => (
                   <li>
-                    {job.job_type}: {job.status}
+                    {job.job_id}: <TaskStatus job={job} />
+                    <div style={{ "font-size": "0.8em", color: "#666" }}>
+                      Created: {new Date(job.created_at).toLocaleString()}
+                    </div>
                   </li>
                 )}
               </For>
@@ -102,28 +90,28 @@ export default function SourceDetail() {
         <Show when={summarizeResult()?.summary}>
           <section>
             <p><strong>Summary:</strong></p>
-            <p>{summarizeResult()?.summary}</p>
+            <p>{summarizeResult()!.summary}</p>
           </section>
         </Show>
 
         <Show when={summarizeResult()?.data_origin}>
           <section>
             <p><strong>Data Origin:</strong></p>
-            <p>{summarizeResult()?.data_origin}</p>
+            <p>{summarizeResult()!.data_origin}</p>
           </section>
         </Show>
 
         <Show when={summarizeResult()?.source_format}>
           <section>
             <p><strong>Source Format:</strong></p>
-            <p>{summarizeResult()?.source_format}</p>
+            <p>{summarizeResult()!.source_format}</p>
           </section>
         </Show>
 
         <Show when={summarizeResult()?.focus_area}>
           <section>
             <p><strong>Focus Area:</strong></p>
-            <p>{summarizeResult()?.focus_area}</p>
+            <p>{summarizeResult()!.focus_area}</p>
           </section>
         </Show>
 
@@ -134,11 +122,11 @@ export default function SourceDetail() {
           </section>
         </Show>
 
-        <Show when={getCurrentSource()?.pages && getCurrentSource()!.pages.length > 0}>
+        <Show when={currentSource()?.pages && currentSource()!.pages.length > 0}>
           <section>
             <p><strong>Pages:</strong></p>
             <ul>
-              <For each={getCurrentSource()?.pages}>
+              <For each={currentSource()!.pages}>
                 {(page) => <PageItem page={page} />}
               </For>
             </ul>

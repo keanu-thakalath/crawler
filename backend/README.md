@@ -31,8 +31,13 @@
    - **Anthropic**: Sign up at [console.anthropic.com](https://console.anthropic.com)
 
 3. **Start the application:**
+
    ```bash
-   ./start.sh
+   uv run litestar run --debug --reload
+   ```
+
+   ```bash
+   uv run celery -A tasks worker --pool solo --loglevel=INFO
    ```
 
 ## After Running

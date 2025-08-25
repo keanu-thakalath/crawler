@@ -1,62 +1,58 @@
 import { createAsync, query, useParams } from "@solidjs/router";
-import { Suspense, For, Show, createEffect, createSignal } from "solid-js";
+import { Suspense, For, Show, createMemo } from "solid-js";
 import { marked } from "marked";
 import * as api from "~/api";
 import { usePolling } from "~/utils/polling";
+import TaskStatus from "~/components/TaskStatus";
 
-const getPageJobs = query(async (url: string) => {
-  return await api.getPageJobs(url);
-}, "pageJobs");
+const getSources = query(async () => {
+  return await api.getSources();
+}, "sources");
 
 export default function PageDetail() {
   const params = useParams();
   const decodedUrl = decodeURIComponent(params.url);
-  const pageJobs = createAsync(() => getPageJobs(decodedUrl));
+  const sources = createAsync(() => getSources());
 
-  const [scrapeResult, setScrapeResult] =
-    createSignal<api.ScrapeJobResponse | null>(null);
-  const [extractResult, setExtractResult] =
-    createSignal<api.ExtractJobResponse | null>(null);
+  usePolling(getSources.key);
 
-  usePolling(getPageJobs.keyFor(decodedUrl));
-
-  createEffect(async () => {
-    const jobs = pageJobs();
-    if (!jobs) return;
-
-    // Find completed scrape job
-    const scrapeJob = jobs.find(
-      (job) => job.job_type === "scrape" && job.status === "completed"
-    );
-    if (scrapeJob && !scrapeResult()) {
-      try {
-        const result = await api.getScrapeResult(scrapeJob.id);
-        setScrapeResult(result);
-      } catch (error) {
-        console.error("Failed to fetch scrape result:", error);
-      }
+  const currentPage = createMemo(() => {
+    const allSources = sources();
+    if (!allSources) return null;
+    
+    for (const source of allSources) {
+      const page = source.pages.find(p => p.url === decodedUrl);
+      if (page) return page;
     }
+    return null;
+  });
 
-    // Find completed extract job
-    const extractJob = jobs.find(
-      (job) => job.job_type === "extract" && job.status === "completed"
+  const scrapeResult = createMemo(() => {
+    const page = currentPage();
+    if (!page) return null;
+    
+    const scrapeJob = page.jobs.find(job => 
+      job.outcome && 'markdown' in job.outcome && 'html' in job.outcome
     );
-    if (extractJob && !extractResult()) {
-      try {
-        const result = await api.getExtractResult(extractJob.id);
-        setExtractResult(result);
-      } catch (error) {
-        console.error("Failed to fetch extract result:", error);
-      }
-    }
+    return scrapeJob?.outcome as api.ScrapeJobOutcome | undefined;
+  });
+
+  const extractResult = createMemo(() => {
+    const page = currentPage();
+    if (!page) return null;
+    
+    const extractJob = page.jobs.find(job => 
+      job.outcome && 'summary' in job.outcome && 'internal_links' in job.outcome
+    );
+    return extractJob?.outcome as api.ExtractJobOutcome | undefined;
   });
 
   const getJobStatus = () => {
-    const jobs = pageJobs();
-    if (!jobs || jobs.length === 0) return "No jobs";
+    const page = currentPage();
+    if (!page || page.jobs.length === 0) return "No jobs";
 
-    const hasRunning = jobs.some((job) => job.status === "running");
-    const allCompleted = jobs.every((job) => job.status === "completed");
+    const hasRunning = page.jobs.some(job => !job.outcome);
+    const allCompleted = page.jobs.every(job => job.outcome);
 
     if (hasRunning) return "Processing";
     if (allCompleted) return "Completed";
@@ -90,19 +86,19 @@ export default function PageDetail() {
           </span>
         </p>
 
-        <Show when={pageJobs() && pageJobs()!.length > 0}>
+        <Show when={currentPage()?.jobs && currentPage()!.jobs.length > 0}>
           <section>
             <p>
               <strong>Jobs:</strong>
             </p>
             <ul>
-              <For each={pageJobs()}>
+              <For each={currentPage()!.jobs}>
                 {(job) => (
-                  <li aria-busy={job.status === "pending"}>
-                    {job.job_type}: {job.status}
-                    <Show when={job.status === "pending"}>
-                      <span style={{ "margin-left": "8px" }}>⏳</span>
-                    </Show>
+                  <li>
+                    {job.job_id}: <TaskStatus job={job} />
+                    <div style={{ "font-size": "0.8em", color: "#666" }}>
+                      Created: {new Date(job.created_at).toLocaleString()}
+                    </div>
                   </li>
                 )}
               </For>
@@ -110,23 +106,59 @@ export default function PageDetail() {
           </section>
         </Show>
 
-        <Show
-          when={extractResult()?.files && extractResult()!.files.length > 0}
-        >
+        <Show when={extractResult()?.file_links && extractResult()!.file_links.length > 0}>
           <section>
             <p>
               <strong>Extracted Files:</strong>
             </p>
             <ul>
-              <For each={extractResult()?.files}>
-                {(file) => (
+              <For each={extractResult()!.file_links}>
+                {(fileUrl) => (
                   <li>
                     <a
-                      href={file.url}
+                      href={fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      {file.url}
+                      {fileUrl}
+                    </a>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </section>
+        </Show>
+
+        <Show when={extractResult()?.internal_links && extractResult()!.internal_links.length > 0}>
+          <section>
+            <p>
+              <strong>Internal Links:</strong>
+            </p>
+            <ul>
+              <For each={extractResult()!.internal_links}>
+                {(link) => (
+                  <li>
+                    <a href={link} target="_blank" rel="noopener noreferrer">
+                      {link}
+                    </a>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </section>
+        </Show>
+
+        <Show when={extractResult()?.external_links && extractResult()!.external_links.length > 0}>
+          <section>
+            <p>
+              <strong>External Links:</strong>
+            </p>
+            <ul>
+              <For each={extractResult()!.external_links}>
+                {(link) => (
+                  <li>
+                    <a href={link} target="_blank" rel="noopener noreferrer">
+                      {link}
                     </a>
                   </li>
                 )}
