@@ -14,51 +14,59 @@ const getSources = query(async () => {
   return await api.getSources();
 }, "sources");
 
-const crawlAction = action(async (formData: FormData) => {
+const addSourceAction = action(async (formData: FormData) => {
   "use server";
   const url = formData.get("url") as string;
   if (!url) throw new Error("URL is required");
 
-  await api.crawlUrl(url);
+  await api.addSource(url);
   await revalidate(getSources.key);
   return {};
-}, "crawl");
+}, "addSource");
+
 
 export default function Index() {
   const sources = createAsync(() => getSources());
-  const submission = useSubmission(crawlAction);
+  const addSourceSubmission = useSubmission(addSourceAction);
 
   usePolling(getSources.key);
 
   return (
     <>
-      <form action={crawlAction} method="post">
+      <h2>Add New Source</h2>
+      <form action={addSourceAction} method="post">
         <fieldset
           role="group"
-          aria-invalid={submission.error && !!submission.error}
+          aria-invalid={
+            addSourceSubmission.error && !!addSourceSubmission.error
+          }
         >
           <input
             type="text"
             name="url"
-            aria-invalid={submission.error && !!submission.error}
+            placeholder="Enter URL to add as source"
+            aria-invalid={
+              addSourceSubmission.error && !!addSourceSubmission.error
+            }
           />
 
           <button
-            disabled={submission.pending}
-            aria-busy={submission.pending}
+            disabled={addSourceSubmission.pending}
+            aria-busy={addSourceSubmission.pending}
             type="submit"
           >
-            Crawl
+            Add Source
           </button>
         </fieldset>
 
-        <Show when={submission.error}>
-          <small>{submission.error.message}</small>{" "}
+        <Show when={addSourceSubmission.error}>
+          <small>{addSourceSubmission.error.message}</small>{" "}
         </Show>
       </form>
 
+      <h2>Sources</h2>
       <Suspense fallback={<ul aria-busy="true">Loading...</ul>}>
-        <ul>
+        <ul style={{ "list-style": "none", padding: "0" }}>
           <For each={sources()}>
             {(source) => <SourceItem source={source} />}
           </For>
