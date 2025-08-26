@@ -163,13 +163,6 @@ class Source:
                                 total_pages_found += 1
 
                 pages_crawled += 1
-                crawl_job.outcome = CrawlJobResult(
-                    pages_crawled=pages_crawled,
-                    total_pages_found=total_pages_found,
-                    max_pages_limit=max_pages,
-                )
-
-                yield crawl_job
 
             all_page_summaries = "\n\n".join(page_summaries)
             async for summary_job in self.summarize_source(
