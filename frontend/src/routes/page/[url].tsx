@@ -6,6 +6,7 @@ import { usePolling } from "~/utils/polling";
 import TaskStatus from "~/components/TaskStatus";
 
 const getSources = query(async () => {
+  "use server";
   return await api.getSources();
 }, "sources");
 
@@ -19,9 +20,9 @@ export default function PageDetail() {
   const currentPage = createMemo(() => {
     const allSources = sources();
     if (!allSources) return null;
-    
+
     for (const source of allSources) {
-      const page = source.pages.find(p => p.url === decodedUrl);
+      const page = source.pages.find((p) => p.url === decodedUrl);
       if (page) return page;
     }
     return null;
@@ -30,9 +31,9 @@ export default function PageDetail() {
   const scrapeResult = createMemo(() => {
     const page = currentPage();
     if (!page) return null;
-    
-    const scrapeJob = page.jobs.find(job => 
-      job.outcome && 'markdown' in job.outcome && 'html' in job.outcome
+
+    const scrapeJob = page.jobs.find(
+      (job) => job.outcome && "markdown" in job.outcome && "html" in job.outcome
     );
     return scrapeJob?.outcome as api.ScrapeJobOutcome | undefined;
   });
@@ -40,9 +41,12 @@ export default function PageDetail() {
   const extractResult = createMemo(() => {
     const page = currentPage();
     if (!page) return null;
-    
-    const extractJob = page.jobs.find(job => 
-      job.outcome && 'summary' in job.outcome && 'internal_links' in job.outcome
+
+    const extractJob = page.jobs.find(
+      (job) =>
+        job.outcome &&
+        "summary" in job.outcome &&
+        "internal_links" in job.outcome
     );
     return extractJob?.outcome as api.ExtractJobOutcome | undefined;
   });
@@ -51,8 +55,8 @@ export default function PageDetail() {
     const page = currentPage();
     if (!page || page.jobs.length === 0) return "No jobs";
 
-    const hasRunning = page.jobs.some(job => !job.outcome);
-    const allCompleted = page.jobs.every(job => job.outcome);
+    const hasRunning = page.jobs.some((job) => !job.outcome);
+    const allCompleted = page.jobs.every((job) => job.outcome);
 
     if (hasRunning) return "Processing";
     if (allCompleted) return "Completed";
@@ -106,7 +110,12 @@ export default function PageDetail() {
           </section>
         </Show>
 
-        <Show when={extractResult()?.file_links && extractResult()!.file_links.length > 0}>
+        <Show
+          when={
+            extractResult()?.file_links &&
+            extractResult()!.file_links.length > 0
+          }
+        >
           <section>
             <p>
               <strong>Extracted Files:</strong>
@@ -115,11 +124,7 @@ export default function PageDetail() {
               <For each={extractResult()!.file_links}>
                 {(fileUrl) => (
                   <li>
-                    <a
-                      href={fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
+                    <a href={fileUrl} target="_blank" rel="noopener noreferrer">
                       {fileUrl}
                     </a>
                   </li>
@@ -129,7 +134,12 @@ export default function PageDetail() {
           </section>
         </Show>
 
-        <Show when={extractResult()?.internal_links && extractResult()!.internal_links.length > 0}>
+        <Show
+          when={
+            extractResult()?.internal_links &&
+            extractResult()!.internal_links.length > 0
+          }
+        >
           <section>
             <p>
               <strong>Internal Links:</strong>
@@ -148,7 +158,12 @@ export default function PageDetail() {
           </section>
         </Show>
 
-        <Show when={extractResult()?.external_links && extractResult()!.external_links.length > 0}>
+        <Show
+          when={
+            extractResult()?.external_links &&
+            extractResult()!.external_links.length > 0
+          }
+        >
           <section>
             <p>
               <strong>External Links:</strong>

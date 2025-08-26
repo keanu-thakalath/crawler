@@ -23,6 +23,13 @@
 
    # LiteLLM / Anthropic API Configuration
    ANTHROPIC_API_KEY=your_anthropic_api_key_here
+
+   # Celery Configuration
+   CELERY_BROKER=local_rabbitmq_server
+   CELERY_BACKEND=db+sqlite:///celery_results.db
+
+   # Database Configuration
+   DATABASE_URL=sqlite+aiosqlite:///crawler.sqlite
    ```
 
    **Get API Keys:**
