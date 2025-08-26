@@ -46,9 +46,8 @@ class SqlAlchemySourceRepository(SourceRepository):
             .options(
                 selectinload(Source.pages),
                 selectinload(Source.jobs).selectinload(Job._error),
-                selectinload(Source.jobs).selectinload(Job._scrape_result),
-                selectinload(Source.jobs).selectinload(Job._extract_result),
                 selectinload(Source.jobs).selectinload(Job._summarize_result),
+                selectinload(Source.jobs).selectinload(Job._crawl_result),
                 selectinload(Source.pages)
                 .selectinload(Page.jobs)
                 .selectinload(Job._error),
@@ -58,9 +57,6 @@ class SqlAlchemySourceRepository(SourceRepository):
                 selectinload(Source.pages)
                 .selectinload(Page.jobs)
                 .selectinload(Job._extract_result),
-                selectinload(Source.pages)
-                .selectinload(Page.jobs)
-                .selectinload(Job._summarize_result),
             )
         )
         result = await self.session.execute(stmt)
@@ -73,6 +69,7 @@ class SqlAlchemySourceRepository(SourceRepository):
             selectinload(Source.jobs).selectinload(Job._scrape_result),
             selectinload(Source.jobs).selectinload(Job._extract_result),
             selectinload(Source.jobs).selectinload(Job._summarize_result),
+            selectinload(Source.jobs).selectinload(Job._crawl_result),
             selectinload(Source.pages).selectinload(Page.jobs).selectinload(Job._error),
             selectinload(Source.pages)
             .selectinload(Page.jobs)
@@ -83,6 +80,9 @@ class SqlAlchemySourceRepository(SourceRepository):
             selectinload(Source.pages)
             .selectinload(Page.jobs)
             .selectinload(Job._summarize_result),
+            selectinload(Source.pages)
+            .selectinload(Page.jobs)
+            .selectinload(Job._crawl_result),
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
