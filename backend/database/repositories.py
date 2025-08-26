@@ -46,6 +46,8 @@ class SqlAlchemySourceRepository(SourceRepository):
             .options(
                 selectinload(Source.pages),
                 selectinload(Source.jobs).selectinload(Job._error),
+                selectinload(Source.jobs).selectinload(Job._scrape_result),
+                selectinload(Source.jobs).selectinload(Job._extract_result),
                 selectinload(Source.jobs).selectinload(Job._summarize_result),
                 selectinload(Source.jobs).selectinload(Job._crawl_result),
                 selectinload(Source.pages)
@@ -66,6 +68,8 @@ class SqlAlchemySourceRepository(SourceRepository):
         stmt = select(Source).options(
             selectinload(Source.pages),
             selectinload(Source.jobs).selectinload(Job._error),
+            selectinload(Source.jobs).selectinload(Job._scrape_result),
+            selectinload(Source.jobs).selectinload(Job._extract_result),
             selectinload(Source.jobs).selectinload(Job._summarize_result),
             selectinload(Source.jobs).selectinload(Job._crawl_result),
             selectinload(Source.pages).selectinload(Page.jobs).selectinload(Job._error),
