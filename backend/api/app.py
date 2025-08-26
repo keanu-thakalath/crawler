@@ -123,7 +123,7 @@ async def reset_database_endpoint(state: State) -> None:
         await conn.run_sync(metadata.create_all)
 
 
-cors_config = CORSConfig(allow_origins=["http://localhost:3000"])
+cors_config = CORSConfig()
 
 app = Litestar(
     route_handlers=[

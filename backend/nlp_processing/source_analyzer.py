@@ -1,6 +1,12 @@
 import abc
 
-from domain.values import LLMResponseMetadata, SummarizeJobResultData
+from domain.values import (
+    DataOrigin,
+    FocusArea,
+    LLMResponseMetadata,
+    SourceFormat,
+    SummarizeJobResultData,
+)
 
 from .structured_completion import LiteLLMStructuredCompletion
 
@@ -20,37 +26,23 @@ class LiteLLMSourceAnalyzer(SourceAnalyzer):
     async def analyze_content(
         self, all_markdown: str, source_url: str
     ) -> tuple[SummarizeJobResultData, LLMResponseMetadata]:
+        data_origin_options = "\n".join([f'- "{option.value}"' for option in DataOrigin])
+        source_format_options = "\n".join([f'- "{option.value}"' for option in SourceFormat])
+        focus_area_options = "\n".join([f'- "{option.value}"' for option in FocusArea])
+
         prompt = f"""
 Analyze the following combined summaries of pages from a website and provide a structured analysis.
 
 Guidelines for classification:
 
-Data Origin examples:
-- "Academic Institution" - Universities, research institutions
-- "Government Agency" - Federal, state, local government sites
-- "Commercial Organization" - Companies, businesses
-- "Non-profit Organization" - NGOs, foundations, charities
-- "News/Media Outlet" - News sites, journalism platforms
-- "Personal/Individual" - Personal blogs, portfolios
-- "Community/Forum" - Discussion forums, community sites
+Data Origin options:
+{data_origin_options}
 
-Source Format examples:
-- "Documentation Site" - Technical docs, API references, manuals
-- "Blog/Article Site" - News articles, blog posts, editorial content
-- "E-commerce Platform" - Online stores, marketplaces
-- "Educational Content" - Courses, tutorials, learning materials
-- "Reference/Database" - Catalogs, directories, reference materials
-- "Portfolio/Showcase" - Personal or company portfolios
-- "Community Platform" - Forums, social platforms, discussion boards
+Source Format options:
+{source_format_options}
 
-Focus Area examples:
-- "Technology/Software" - Programming, tech products, software
-- "Healthcare/Medical" - Medical information, healthcare services
-- "Education/Learning" - Educational content, courses, training
-- "Business/Finance" - Business information, financial services
-- "Science/Research" - Scientific publications, research data
-- "Arts/Entertainment" - Creative content, entertainment, media
-- "Government/Public" - Public services, government information
+Focus Area options:
+{focus_area_options}
 
 Source URL: {source_url}
 

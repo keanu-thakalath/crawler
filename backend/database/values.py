@@ -1,13 +1,16 @@
 import json
 
-from sqlalchemy import Column, ForeignKey, Integer, String, Table, Text
+from sqlalchemy import Column, Enum, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.types import TypeDecorator
 
 from domain.values import (
     CrawlJobResult,
+    DataOrigin,
     ExtractJobResult,
+    FocusArea,
     JobError,
     ScrapeJobResult,
+    SourceFormat,
     SummarizeJobResult,
 )
 
@@ -64,9 +67,9 @@ summarize_job_results = Table(
     Column("job_id", String(255), ForeignKey("jobs.job_id"), primary_key=True),
     Column("created_at", String(255), nullable=False),
     Column("summary", Text, nullable=False),
-    Column("data_origin", String(255), nullable=False),
-    Column("source_format", String(255), nullable=False),
-    Column("focus_area", String(255), nullable=False),
+    Column("data_origin", Enum(DataOrigin), nullable=False),
+    Column("source_format", Enum(SourceFormat), nullable=False),
+    Column("focus_area", Enum(FocusArea), nullable=False),
     Column("input_tokens", Integer, nullable=False),
     Column("output_tokens", Integer, nullable=False),
 )
