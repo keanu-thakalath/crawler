@@ -1,17 +1,22 @@
 import asyncio
 from functools import wraps
+import os
 
 from celery import Celery
 
 from database.session import create_async_session_factory
 from service.unit_of_work import SqlAlchemyUnitOfWork
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 def create_celery_app() -> Celery:
     celery_app = Celery(
         "crawler_demo",
-        broker="pyamqp://guest@localhost//",
-        backend="db+sqlite:///celery_results.db",
+        broker=os.getenv("CELERY_BROKER"),
+        backend=os.getenv("CELERY_BACKEND"),
         include=["tasks.crawl"],
     )
 
@@ -43,9 +48,7 @@ def async_task(**celery_kwargs):
 
 
 async def _run_with_uow(async_func, *args, **kwargs):
-    session_factory, engine = await create_async_session_factory(
-        "sqlite+aiosqlite:///crawler.sqlite"
-    )
+    session_factory, engine = await create_async_session_factory()
 
     try:
         async with SqlAlchemyUnitOfWork(session_factory=session_factory) as uow:

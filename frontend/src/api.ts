@@ -1,4 +1,6 @@
-const BASE_URL = "http://localhost:8000";
+"use server";
+
+const BASE_URL = process.env.BACKEND_URL;
 
 // Job outcome types based on backend domain models
 export interface ScrapeJobOutcome {

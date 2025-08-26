@@ -11,6 +11,7 @@ import SourceItem from "~/components/SourceItem";
 import { usePolling } from "~/utils/polling";
 
 const getSources = query(async () => {
+  "use server";
   return await api.getSources();
 }, "sources");
 
@@ -23,7 +24,6 @@ const addSourceAction = action(async (formData: FormData) => {
   await revalidate(getSources.key);
   return {};
 }, "addSource");
-
 
 export default function Index() {
   const sources = createAsync(() => getSources());
