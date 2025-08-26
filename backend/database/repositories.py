@@ -75,6 +75,12 @@ class SqlAlchemySourceRepository(SourceRepository):
             selectinload(Source.pages)
             .selectinload(Page.jobs)
             .selectinload(Job._extract_result),
+            selectinload(Source.pages)
+            .selectinload(Page.jobs)
+            .selectinload(Job._summarize_result),
+            selectinload(Source.pages)
+            .selectinload(Page.jobs)
+            .selectinload(Job._crawl_result),
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
