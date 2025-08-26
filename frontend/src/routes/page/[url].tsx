@@ -6,7 +6,6 @@ import { usePolling } from "~/utils/polling";
 import TaskStatus from "~/components/TaskStatus";
 
 const getSources = query(async () => {
-  "use server";
   return await api.getSources();
 }, "sources");
 

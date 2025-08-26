@@ -11,12 +11,10 @@ import SourceItem from "~/components/SourceItem";
 import { usePolling } from "~/utils/polling";
 
 const getSources = query(async () => {
-  "use server";
   return await api.getSources();
 }, "sources");
 
 const addSourceAction = action(async (formData: FormData) => {
-  "use server";
   const url = formData.get("url") as string;
   if (!url) throw new Error("URL is required");
 
