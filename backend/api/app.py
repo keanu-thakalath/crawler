@@ -114,6 +114,14 @@ async def crawl_url_endpoint(data: CrawlRequest) -> None:
     crawl_url.delay(data.url, data.max_pages)
 
 
+@delete("/sources")
+async def delete_source_endpoint(source_url: str, uow: UnitOfWork) -> None:
+    try:
+        await services.delete_source(source_url, uow)
+    except SourceNotFoundError as e:
+        raise ClientException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+
 @delete("/reset")
 async def reset_database_endpoint(state: State) -> None:
     """Reset the database by dropping all tables"""
@@ -123,12 +131,13 @@ async def reset_database_endpoint(state: State) -> None:
         await conn.run_sync(metadata.create_all)
 
 
-cors_config = CORSConfig(allow_origins=["http://localhost:3000"])
+cors_config = CORSConfig()
 
 app = Litestar(
     route_handlers=[
         add_source_endpoint,
         list_sources_endpoint,
+        delete_source_endpoint,
         crawl_url_endpoint,
         reset_database_endpoint,
     ],

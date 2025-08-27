@@ -1,3 +1,5 @@
+from domain.exceptions import InvalidUrlError
+from domain.values import ExtractJobResult
 from domain.entities import CrawlJob, ExtractJob, Page, ScrapeJob, Source, SummarizeJob
 from domain.types import NormalizedUrl
 
@@ -112,4 +114,23 @@ async def crawl_source(source_url: str, max_pages: int, uow: UnitOfWork) -> Craw
     ):
         await uow.commit()
 
+        if isinstance(job.outcome, ExtractJobResult):
+            for external_link in job.outcome.external_links:
+                try:
+                    await add_source(external_link, uow)
+                except SourceAlreadyExistsError:
+                    pass
+                except InvalidUrlError:
+                    pass
+            
+
     return job
+
+
+async def delete_source(source_url: str, uow: UnitOfWork) -> None:
+    source = await uow.sources.get(source_url)
+    if not source:
+        raise SourceNotFoundError(source_url)
+    
+    await uow.sources.delete(source)
+    await uow.commit()

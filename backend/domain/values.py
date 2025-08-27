@@ -1,8 +1,39 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
 from typing import List
 
 from .types import NormalizedUrl
+
+
+class DataOrigin(Enum):
+    ACADEMIC = "Academic"
+    GOVERNMENT = "Government"
+    NEWS = "News"
+    BLOG = "Blog"
+    NON_PROFIT = "Non-Profit"
+
+
+class SourceFormat(Enum):
+    RESEARCH_PAPER = "Research Paper"
+    ARTICLE = "Article"
+    DATA_REPOSITORY = "Data Repository"
+    HISTORICAL_INFO = "Historical Info"
+    POLICY = "Policy"
+    LAW = "Law"
+    NARRATIVE = "Narrative"
+    DATA_VISUALIZATION = "Data Visualization"
+    LETTER = "Letter"
+    GOVERNMENT_SOURCE = "Government Source"
+
+
+
+class FocusArea(Enum):
+    NON_HUMAN_ANIMALS = "Non-Human Animals"
+    HUMANS = "Humans"
+    ENVIRONMENT = "Environment"
+    COMMUNITY = "Community"
+    BUSINESS = "Business"
 
 
 @dataclass(kw_only=True)
@@ -44,9 +75,9 @@ class ExtractJobResult(JobResult, ExtractJobResultData, LLMResponseMetadata):
 @dataclass
 class SummarizeJobResultData:
     summary: str
-    data_origin: str
-    source_format: str
-    focus_area: str
+    data_origin: DataOrigin
+    source_format: SourceFormat
+    focus_area: FocusArea
 
 
 @dataclass(kw_only=True)
