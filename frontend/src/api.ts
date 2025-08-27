@@ -65,13 +65,23 @@ export async function addSource(url: string) {
   }
 }
 
-export async function crawlUrl(url: string, maxPages: number = 3) {
+export async function crawlUrl(url: string, maxPages: number) {
   const response = await fetch(`${BASE_URL}/crawl`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ url, max_pages: maxPages }),
+  });
+  if (!response.ok) {
+    const json = await response.json();
+    throw new Error(json.detail);
+  }
+}
+
+export async function deleteSource(url: string) {
+  const response = await fetch(`${BASE_URL}/sources?source_url=${encodeURIComponent(url)}`, {
+    method: "DELETE",
   });
   if (!response.ok) {
     const json = await response.json();

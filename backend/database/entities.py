@@ -106,10 +106,12 @@ def map_entities(
             "pages": relationship(
                 lambda: page_mapper,
                 collection_class=list,
+                cascade="all, delete-orphan",
             ),
             "jobs": relationship(
                 job_mapper,
                 collection_class=list,
+                cascade="all, delete-orphan",
             ),
         },
     )
@@ -121,6 +123,7 @@ def map_entities(
             "jobs": relationship(
                 job_mapper,
                 collection_class=list,
+                cascade="all, delete-orphan",
             )
         },
     )

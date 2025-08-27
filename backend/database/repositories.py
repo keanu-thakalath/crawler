@@ -21,6 +21,10 @@ class SourceRepository(abc.ABC):
     async def list_all(self) -> List[Source]:
         raise NotImplementedError
 
+    @abc.abstractmethod
+    async def delete(self, source: Source) -> None:
+        raise NotImplementedError
+
 
 class PageRepository(abc.ABC):
     @abc.abstractmethod
@@ -88,6 +92,9 @@ class SqlAlchemySourceRepository(SourceRepository):
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def delete(self, source: Source) -> None:
+        await self.session.delete(source)
 
 
 class SqlAlchemyPageRepository(PageRepository):
