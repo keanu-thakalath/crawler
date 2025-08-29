@@ -4,8 +4,7 @@ import { FileRoutes } from "@solidjs/start/router";
 import AuthForm, { getAuthToken } from "./components/AuthForm";
 
 function Layout(props: any) {
-  const auth_token = createAsync(() => getAuthToken(), { deferStream: true });
-
+  const auth_token = createAsync(() => getAuthToken());
   return (
     <main>
       <nav>
@@ -15,11 +14,11 @@ function Layout(props: any) {
           </li>
         </ul>
       </nav>
-      <Show when={auth_token()} fallback={<AuthForm />}>
-        <Suspense fallback={<section aria-busy="true">Loading...</section>}>
+      <Suspense fallback={<section aria-busy="true">Loading...</section>}>
+        <Show when={auth_token()} fallback={<AuthForm />}>
           {props.children}
-        </Suspense>
-      </Show>
+        </Show>
+      </Suspense>
     </main>
   );
 }
