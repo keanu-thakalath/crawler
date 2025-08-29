@@ -1,4 +1,3 @@
-import traceback
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -96,8 +95,6 @@ class Page:
             yield job
 
         except Exception as e:
-            print(traceback.print_exc())
-            print(e)
             job_error = JobError(message=str(e))
             job.outcome = job_error
 

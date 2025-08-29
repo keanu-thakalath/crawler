@@ -30,6 +30,9 @@
 
    # Database Configuration
    DATABASE_URL=sqlite+aiosqlite:///crawler.sqlite
+
+   # Auth configuration
+   USER_TOKEN=your_token_here
    ```
 
    **Get API Keys:**

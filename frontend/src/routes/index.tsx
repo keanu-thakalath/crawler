@@ -30,7 +30,7 @@ export default function Index() {
   usePolling(getSources.key);
 
   return (
-    <>
+    <section>
       <h2>Add New Source</h2>
       <form action={addSourceAction} method="post">
         <fieldset
@@ -48,13 +48,13 @@ export default function Index() {
             }
           />
 
-          <button
+          <input
             disabled={addSourceSubmission.pending}
             aria-busy={addSourceSubmission.pending}
             type="submit"
           >
             Add Source
-          </button>
+          </input>
         </fieldset>
 
         <Show when={addSourceSubmission.error}>
@@ -70,6 +70,6 @@ export default function Index() {
           </For>
         </ul>
       </Suspense>
-    </>
+    </section>
   );
 }

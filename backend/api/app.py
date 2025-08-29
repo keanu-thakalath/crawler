@@ -6,21 +6,25 @@ from litestar.datastructures import State
 from litestar.exceptions import ClientException
 from litestar.openapi.config import OpenAPIConfig
 from litestar.openapi.plugins import SwaggerRenderPlugin
+from litestar.openapi.spec import Components, SecurityScheme
+from litestar.middleware import DefineMiddleware
 from litestar.status_codes import (
     HTTP_400_BAD_REQUEST,
     HTTP_404_NOT_FOUND,
     HTTP_409_CONFLICT,
 )
 
-from api.dependencies import provide_uow
-from api.dto import (
+from .auth import AuthenticationMiddleware, Key, exchange_key, InvalidKeyError
+from .dependencies import provide_uow
+from .dto import (
     AddPageToSourceRequest,
     CrawlRequest,
     ExtractRequest,
     ScrapeRequest,
     SummarizeRequest,
+    TokenResponse,
 )
-from api.lifespan import db_connection
+from .lifespan import db_connection
 from database.models import metadata
 from domain.entities import ExtractJob, Page, ScrapeJob, Source, SummarizeJob
 from domain.exceptions import InvalidUrlError
@@ -122,9 +126,16 @@ async def delete_source_endpoint(source_url: str, uow: UnitOfWork) -> None:
         raise ClientException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
+@post("/exchange_key")
+async def exchange_key_endpoint(key: Key) -> TokenResponse:
+    try:
+        return TokenResponse(token=exchange_key(key))
+    except InvalidKeyError:
+        raise ClientException(status_code=HTTP_400_BAD_REQUEST, detail="Invalid key")
+
+
 @delete("/reset")
 async def reset_database_endpoint(state: State) -> None:
-    """Reset the database by dropping all tables"""
     engine = state.engine
     async with engine.begin() as conn:
         await conn.run_sync(metadata.drop_all)
@@ -133,12 +144,15 @@ async def reset_database_endpoint(state: State) -> None:
 
 cors_config = CORSConfig()
 
+auth_mw = DefineMiddleware(AuthenticationMiddleware, exclude=["schema", "exchange_key"])
+
 app = Litestar(
     route_handlers=[
         add_source_endpoint,
         list_sources_endpoint,
         delete_source_endpoint,
         crawl_url_endpoint,
+        exchange_key_endpoint,
         reset_database_endpoint,
     ],
     openapi_config=OpenAPIConfig(
@@ -146,8 +160,18 @@ app = Litestar(
         description="A clean web crawler API using domain-driven design",
         version="1.0.0",
         render_plugins=[SwaggerRenderPlugin()],
+        security=[{"BearerToken": []}],
+        components=Components(
+            security_schemes={
+                "BearerToken": SecurityScheme(
+                    type="http",
+                    scheme="bearer",
+                )
+            },
+        ),
     ),
     dependencies={"uow": provide_uow},
     cors_config=cors_config,
     lifespan=[db_connection],
+    middleware=[auth_mw],
 )

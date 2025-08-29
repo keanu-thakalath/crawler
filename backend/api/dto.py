@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from .auth import Token
+
 
 @dataclass
 class CrawlRequest:
@@ -28,3 +30,8 @@ class SummarizeRequest:
 class AddPageToSourceRequest:
     source_url: str
     page_url: str
+
+
+@dataclass
+class TokenResponse:
+    token: Token

@@ -1,4 +1,5 @@
 "use server";
+import { getAuthToken } from "./utils/auth";
 
 const BASE_URL = process.env.BACKEND_URL;
 
@@ -47,8 +48,22 @@ export interface Source {
   jobs: Job[];
 }
 
+export interface TokenResponse {
+  token: string;
+}
+
+async function withAuth() {
+  return {
+    Authorization: `Bearer ${await getAuthToken()}`,
+  };
+}
+
 export async function getSources() {
-  const response = await fetch(`${BASE_URL}/sources`);
+  const response = await fetch(`${BASE_URL}/sources`, {
+    headers: {
+      ...(await withAuth()),
+    },
+  });
   return (await response.json()) as Source[];
 }
 
@@ -57,6 +72,7 @@ export async function addSource(url: string) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(await withAuth()),
     },
   });
   if (!response.ok) {
@@ -70,6 +86,7 @@ export async function crawlUrl(url: string, maxPages: number) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(await withAuth()),
     },
     body: JSON.stringify({ url, max_pages: maxPages }),
   });
@@ -80,9 +97,15 @@ export async function crawlUrl(url: string, maxPages: number) {
 }
 
 export async function deleteSource(url: string) {
-  const response = await fetch(`${BASE_URL}/sources?source_url=${encodeURIComponent(url)}`, {
-    method: "DELETE",
-  });
+  const response = await fetch(
+    `${BASE_URL}/sources?source_url=${encodeURIComponent(url)}`,
+    {
+      method: "DELETE",
+      headers: {
+        ...(await withAuth()),
+      },
+    }
+  );
   if (!response.ok) {
     const json = await response.json();
     throw new Error(json.detail);
@@ -92,8 +115,21 @@ export async function deleteSource(url: string) {
 export async function resetTables() {
   const response = await fetch(`${BASE_URL}/reset`, {
     method: "DELETE",
+    headers: {
+      ...(await withAuth()),
+    },
   });
   if (!response.ok) {
     throw new Error(`Failed to reset tables: ${response.statusText}`);
   }
+}
+
+export async function exchangeKey(key: string) {
+  const response = await fetch(`${BASE_URL}/exchange_key?key=${key}`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    return;
+  }
+  return (await response.json()) as TokenResponse;
 }

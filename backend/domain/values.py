@@ -27,7 +27,6 @@ class SourceFormat(Enum):
     GOVERNMENT_SOURCE = "Government Source"
 
 
-
 class FocusArea(Enum):
     NON_HUMAN_ANIMALS = "Non-Human Animals"
     HUMANS = "Humans"

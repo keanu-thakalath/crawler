@@ -122,7 +122,6 @@ async def crawl_source(source_url: str, max_pages: int, uow: UnitOfWork) -> Craw
                     pass
                 except InvalidUrlError:
                     pass
-            
 
     return job
 
@@ -131,6 +130,6 @@ async def delete_source(source_url: str, uow: UnitOfWork) -> None:
     source = await uow.sources.get(source_url)
     if not source:
         raise SourceNotFoundError(source_url)
-    
+
     await uow.sources.delete(source)
     await uow.commit()
