@@ -8,12 +8,23 @@
 ## Setup
 
 1. **Install dependencies:**
+
    ```bash
    cd frontend
    npm install
    ```
 
-2. **Start the development server:**
+2. **Create `.env` file:**
+
+   ```bash
+   BACKEND_URL=http://localhost:8000
+
+   NODE_TLS_REJECT_UNAUTHORIZED=0
+
+   SESSION_SECRET=32_character_string
+   ```
+
+3. **Start the development server:**
    ```bash
    npm run dev
    ```

@@ -26,8 +26,12 @@ class LiteLLMSourceAnalyzer(SourceAnalyzer):
     async def analyze_content(
         self, all_markdown: str, source_url: str
     ) -> tuple[SummarizeJobResultData, LLMResponseMetadata]:
-        data_origin_options = "\n".join([f'- "{option.value}"' for option in DataOrigin])
-        source_format_options = "\n".join([f'- "{option.value}"' for option in SourceFormat])
+        data_origin_options = "\n".join(
+            [f'- "{option.value}"' for option in DataOrigin]
+        )
+        source_format_options = "\n".join(
+            [f'- "{option.value}"' for option in SourceFormat]
+        )
         focus_area_options = "\n".join([f'- "{option.value}"' for option in FocusArea])
 
         prompt = f"""
