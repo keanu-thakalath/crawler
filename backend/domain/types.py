@@ -1,4 +1,4 @@
-from typing import Any, Self
+from typing import Self
 from urllib.parse import urljoin
 
 from .exceptions import InvalidUrlError
@@ -24,16 +24,3 @@ class NormalizedUrl(str):
         return cls(urljoin(base_url, path))
 
 
-def schema_hook(custom_type: type[NormalizedUrl]) -> dict:
-    if custom_type is NormalizedUrl:
-        return {"type": "string"}
-    raise NotImplementedError()
-
-
-def dec_hook(custom_type: type[NormalizedUrl], obj: Any) -> NormalizedUrl:
-    if custom_type is NormalizedUrl:
-        try:
-            return NormalizedUrl(obj)
-        except InvalidUrlError:
-            return ""
-    raise NotImplementedError()

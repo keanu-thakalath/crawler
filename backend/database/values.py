@@ -9,6 +9,7 @@ from domain.values import (
     ExtractJobResult,
     FocusArea,
     JobError,
+    ReviewStatus,
     ScrapeJobResult,
     SourceFormat,
     SummarizeJobResult,
@@ -45,7 +46,6 @@ scrape_job_results = Table(
     Column("job_id", String(255), ForeignKey("jobs.job_id"), primary_key=True),
     Column("created_at", String(255), nullable=False),
     Column("markdown", Text, nullable=False),
-    Column("html", Text, nullable=False),
 )
 
 extract_job_results = Table(
@@ -59,6 +59,7 @@ extract_job_results = Table(
     Column("internal_links", JSONList, nullable=False),
     Column("external_links", JSONList, nullable=False),
     Column("file_links", JSONList, nullable=False),
+    Column("review_status", Enum(ReviewStatus), default=ReviewStatus.UNREVIEWED, nullable=False)
 )
 
 summarize_job_results = Table(

@@ -7,7 +7,6 @@ const BASE_URL = process.env.BACKEND_URL;
 export interface ScrapeJobOutcome {
   created_at: string;
   markdown: string;
-  html: string;
 }
 
 export interface ExtractJobOutcome {

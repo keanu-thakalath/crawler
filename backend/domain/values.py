@@ -34,6 +34,10 @@ class FocusArea(Enum):
     COMMUNITY = "Community"
     BUSINESS = "Business"
 
+class ReviewStatus(Enum):
+    UNREVIEWED = "Unreviewed"
+    APPROVED = "Approved"
+
 
 @dataclass(kw_only=True)
 class JobResult:
@@ -55,7 +59,6 @@ class LLMResponseMetadata:
 @dataclass(kw_only=True)
 class ScrapeJobResult(JobResult):
     markdown: str
-    html: str
 
 
 @dataclass
@@ -64,6 +67,7 @@ class ExtractJobResultData:
     internal_links: List[NormalizedUrl]
     external_links: List[NormalizedUrl]
     file_links: List[NormalizedUrl]
+    review_status: ReviewStatus
 
 
 @dataclass(kw_only=True)
