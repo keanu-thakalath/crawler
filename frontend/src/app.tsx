@@ -4,7 +4,7 @@ import { FileRoutes } from "@solidjs/start/router";
 import AuthForm, { getAuthToken } from "./components/AuthForm";
 
 function Layout(props: any) {
-  const auth_token = createAsync(() => getAuthToken());
+  const auth_token = createAsync(() => getAuthToken(), { deferStream: true });
   return (
     <main>
       <nav>
