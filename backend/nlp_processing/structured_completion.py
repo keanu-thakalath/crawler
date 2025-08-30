@@ -5,7 +5,6 @@ import msgspec
 from dotenv import load_dotenv
 from litellm import completion, get_supported_openai_params, supports_response_schema
 
-from domain.types import dec_hook, schema_hook
 from domain.values import LLMResponseMetadata
 
 from .exceptions import UnsupportedModelError
@@ -36,7 +35,7 @@ class LiteLLMStructuredCompletion:
     async def complete(
         self, prompt: str, response_type: Type[T]
     ) -> tuple[T, LLMResponseMetadata]:
-        json_schema = msgspec.json.schema(response_type, schema_hook=schema_hook)
+        json_schema = msgspec.json.schema(response_type)
 
         resp = completion(
             model=self.model,
@@ -48,9 +47,7 @@ class LiteLLMStructuredCompletion:
             },
         )
         content = msgspec.json.decode(resp.choices[0].message.content)
-        return msgspec.convert(
-            content, response_type, dec_hook=dec_hook
-        ), LLMResponseMetadata(
+        return msgspec.convert(content, response_type), LLMResponseMetadata(
             input_tokens=resp.usage.prompt_tokens,
             output_tokens=resp.usage.completion_tokens,
         )

@@ -1,9 +1,19 @@
 import abc
+from dataclasses import dataclass
+from typing import List
 
 from domain.types import NormalizedUrl
-from domain.values import ExtractJobResultData, LLMResponseMetadata
+from domain.values import ExtractJobResultData, LLMResponseMetadata, ReviewStatus
 
 from .structured_completion import LiteLLMStructuredCompletion
+
+
+@dataclass
+class ExtractJobResultRawData:
+    summary: str
+    internal_links: List[str]
+    external_links: List[str]
+    file_links: List[str]
 
 
 class PageLinkExtractor(abc.ABC):
@@ -17,6 +27,13 @@ class PageLinkExtractor(abc.ABC):
 class LiteLLMPageLinkExtractor(PageLinkExtractor):
     def __init__(self, structured_completion: LiteLLMStructuredCompletion):
         self.structured_completion = structured_completion
+
+    @staticmethod
+    def _try_normalize_url(url: str) -> NormalizedUrl | None:
+        try:
+            return NormalizedUrl(url)
+        except Exception:
+            return None
 
     async def extract_links_and_summary(
         self, url: NormalizedUrl, markdown: str
@@ -38,4 +55,26 @@ Markdown content for URL {url}:
 {markdown}
 """
 
-        return await self.structured_completion.complete(prompt, ExtractJobResultData)
+        raw_result, metadata = await self.structured_completion.complete(prompt, ExtractJobResultRawData)
+        
+        def validate_urls(urls: List[str]) -> List[NormalizedUrl]:
+            return [
+                normalized_url
+                for url in urls
+                if (normalized_url := self._try_normalize_url(url)) is not None
+            ]
+        
+        # Validate and filter URLs
+        internal_links = validate_urls(raw_result.internal_links)
+        external_links = validate_urls(raw_result.external_links)
+        file_links = validate_urls(raw_result.file_links)
+        
+        validated_result = ExtractJobResultData(
+            summary=raw_result.summary,
+            internal_links=internal_links,
+            external_links=external_links,
+            file_links=file_links,
+            review_status=ReviewStatus.UNREVIEWED
+        )
+        
+        return validated_result, metadata

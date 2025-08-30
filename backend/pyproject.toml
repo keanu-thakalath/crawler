@@ -14,6 +14,7 @@ dependencies = [
     "markdownify>=1.1.0",
     "litellm>=1.74.15.post1",
     "python-dotenv>=1.1.1",
+    "alembic>=1.13.0",
 ]
 
 [dependency-groups]

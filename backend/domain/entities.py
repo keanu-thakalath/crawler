@@ -55,7 +55,7 @@ class Page:
             html_content = await html_scraper.scrape_url(self.url)
             markdown_content = html_converter.convert_to_markdown(html_content)
 
-            job_result = ScrapeJobResult(markdown=markdown_content, html=html_content)
+            job_result = ScrapeJobResult(markdown=markdown_content)
             job.outcome = job_result
 
             yield job
@@ -89,6 +89,7 @@ class Page:
                 internal_links=job_result_data.internal_links,
                 external_links=job_result_data.external_links,
                 file_links=job_result_data.file_links,
+                review_status=job_result_data.review_status,
             )
             job.outcome = job_result
 

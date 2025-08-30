@@ -12,8 +12,8 @@ async def create_async_session_factory():
 
     Models.start_mappers()
 
-    async with engine.begin() as conn:
-        await conn.run_sync(metadata.create_all)
+    # Note: Database schema is now managed by Alembic migrations
+    # Run: uv run alembic upgrade head
 
     async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
