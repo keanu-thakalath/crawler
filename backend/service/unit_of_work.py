@@ -3,8 +3,10 @@ from __future__ import annotations
 import abc
 
 from database.repositories import (
+    JobRepository,
     PageRepository,
     SourceRepository,
+    SqlAlchemyJobRepository,
     SqlAlchemyPageRepository,
     SqlAlchemySourceRepository,
 )
@@ -24,6 +26,7 @@ from scraping.html_to_markdown_converter import (
 class UnitOfWork(abc.ABC):
     sources: SourceRepository
     pages: PageRepository
+    jobs: JobRepository
     html_scraper: HtmlScraper
     html_converter: HtmlToMarkdownConverter
     page_link_extractor: PageLinkExtractor
@@ -52,6 +55,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.session = self.session_factory()
         self.sources = SqlAlchemySourceRepository(self.session)
         self.pages = SqlAlchemyPageRepository(self.session)
+        self.jobs = SqlAlchemyJobRepository(self.session)
         self.html_scraper = CrawlbaseScraper()
         self.html_converter = MarkdownifyConverter()
 

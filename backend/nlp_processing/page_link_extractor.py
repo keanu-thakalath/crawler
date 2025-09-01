@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import List
 
 from domain.types import NormalizedUrl
-from domain.values import ExtractJobResultData, LLMResponseMetadata, ReviewStatus
+from domain.values import ExtractJobResultData, LLMResponseMetadata
 
 from .structured_completion import LiteLLMStructuredCompletion
 
@@ -74,7 +74,6 @@ Markdown content for URL {url}:
             internal_links=internal_links,
             external_links=external_links,
             file_links=file_links,
-            review_status=ReviewStatus.UNREVIEWED
         )
         
         return validated_result, metadata

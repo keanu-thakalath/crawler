@@ -73,6 +73,7 @@ summarize_job_results = Table(
     Column("focus_area", Enum(FocusArea), nullable=False),
     Column("input_tokens", Integer, nullable=False),
     Column("output_tokens", Integer, nullable=False),
+    Column("review_status", Enum(ReviewStatus), default=ReviewStatus.UNREVIEWED, nullable=False)
 )
 
 crawl_job_results = Table(

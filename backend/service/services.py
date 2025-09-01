@@ -1,9 +1,11 @@
 from domain.exceptions import InvalidUrlError
-from domain.values import ExtractJobResult
-from domain.entities import CrawlJob, ExtractJob, Page, ScrapeJob, Source, SummarizeJob
+from domain.values import ExtractJobResult, ReviewStatus, SummarizeJobResult
+from domain.entities import CrawlJob, ExtractJob, Job, Page, ScrapeJob, Source, SummarizeJob
 from domain.types import NormalizedUrl
 
 from .exceptions import (
+    InvalidJobTypeError,
+    JobNotFoundError,
     PageAlreadyExistsError,
     PageNotFoundError,
     SourceAlreadyExistsError,
@@ -133,3 +135,19 @@ async def delete_source(source_url: str, uow: UnitOfWork) -> None:
 
     await uow.sources.delete(source)
     await uow.commit()
+
+
+async def approve_job_review_status(job_id: str, uow: UnitOfWork) -> Job:
+    job = await uow.jobs.get_by_id(job_id)
+    if not job:
+        raise JobNotFoundError(job_id)
+    
+    # Check if job outcome supports review status updates
+    if not isinstance(job.outcome, (ExtractJobResult, SummarizeJobResult)):
+        outcome_type = type(job.outcome).__name__ if job.outcome else "None"
+        raise InvalidJobTypeError(job_id, outcome_type)
+    
+    # Update review status to approved
+    job.outcome.review_status = ReviewStatus.APPROVED
+    await uow.commit()
+    return job

@@ -83,13 +83,11 @@ class Page:
             )
 
             job_result = ExtractJobResult(
-                input_tokens=llm_response_metadata.input_tokens,
-                output_tokens=llm_response_metadata.output_tokens,
+                **llm_response_metadata.__dict__,
                 summary=job_result_data.summary,
                 internal_links=job_result_data.internal_links,
                 external_links=job_result_data.external_links,
                 file_links=job_result_data.file_links,
-                review_status=job_result_data.review_status,
             )
             job.outcome = job_result
 

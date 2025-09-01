@@ -97,6 +97,12 @@ class SqlAlchemySourceRepository(SourceRepository):
         await self.session.delete(source)
 
 
+class JobRepository(abc.ABC):
+    @abc.abstractmethod
+    async def get_by_id(self, job_id: str) -> Optional[Job]:
+        raise NotImplementedError
+
+
 class SqlAlchemyPageRepository(PageRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -113,6 +119,26 @@ class SqlAlchemyPageRepository(PageRepository):
                 selectinload(Page.jobs).selectinload(Job._scrape_result),
                 selectinload(Page.jobs).selectinload(Job._extract_result),
                 selectinload(Page.jobs).selectinload(Job._summarize_result),
+            )
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+
+class SqlAlchemyJobRepository(JobRepository):
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def get_by_id(self, job_id: str) -> Optional[Job]:
+        stmt = (
+            select(Job)
+            .where(Job.job_id == job_id)
+            .options(
+                selectinload(Job._error),
+                selectinload(Job._scrape_result),
+                selectinload(Job._extract_result),
+                selectinload(Job._summarize_result),
+                selectinload(Job._crawl_result),
             )
         )
         result = await self.session.execute(stmt)
