@@ -1,8 +1,9 @@
-from sqlalchemy import Column, ForeignKey, String, Table
+from sqlalchemy import Column, ForeignKey, String, Table, TypeDecorator
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 
 from domain.entities import Job, Page, Source
+from domain.types import NormalizedUrl
 from domain.values import (
     CrawlJobResult,
     ExtractJobResult,
@@ -14,17 +15,32 @@ from domain.values import (
 from . import mapper_registry, metadata
 
 
+class NormalizedUrlType(TypeDecorator):
+    impl = String
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        return NormalizedUrl(value)
+
+
 def create_entity_tables():
     sources = Table(
         "sources",
         metadata,
-        Column("url", String(255), primary_key=True),
+        Column("url", NormalizedUrlType(255), primary_key=True),
     )
 
     pages = Table(
         "pages",
         metadata,
-        Column("url", String(255), primary_key=True),
+        Column("url", NormalizedUrlType(255), primary_key=True),
         Column("source_url", ForeignKey("sources.url"), nullable=False),
     )
 

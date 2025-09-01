@@ -1,6 +1,6 @@
 import abc
 
-from domain.types import NormalizedUrl
+from domain.types import NormalizedUrl, UrlType
 from .html_scraper import CrawlbaseScraper
 from .html_to_markdown_converter import MarkdownifyConverter
 from .pdf_scraper import PdfScraper
@@ -19,8 +19,9 @@ class UniversalContentScraper(ContentScraper):
         self.pdf_scraper = PdfScraper()
 
     async def scrape_url_to_markdown(self, url: NormalizedUrl) -> str:
-        if NormalizedUrl.is_pdf(url):
-            return await self.pdf_scraper.scrape_url(url)
-        else:
-            html_content = await self.html_scraper.scrape_url(url)
-            return self.html_converter.convert_to_markdown(html_content)
+        match url.type:
+            case UrlType.PDF:
+                return await self.pdf_scraper.scrape_url(url)
+            case UrlType.HTML:
+                html_content = await self.html_scraper.scrape_url(url)
+                return self.html_converter.convert_to_markdown(html_content)
