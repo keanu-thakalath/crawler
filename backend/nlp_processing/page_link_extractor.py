@@ -55,25 +55,27 @@ Markdown content for URL {url}:
 {markdown}
 """
 
-        raw_result, metadata = await self.structured_completion.complete(prompt, ExtractJobResultRawData)
-        
+        raw_result, metadata = await self.structured_completion.complete(
+            prompt, ExtractJobResultRawData
+        )
+
         def validate_urls(urls: List[str]) -> List[NormalizedUrl]:
             return [
                 normalized_url
                 for url in urls
                 if (normalized_url := self._try_normalize_url(url)) is not None
             ]
-        
+
         # Validate and filter URLs
         internal_links = validate_urls(raw_result.internal_links)
         external_links = validate_urls(raw_result.external_links)
         file_links = validate_urls(raw_result.file_links)
-        
+
         validated_result = ExtractJobResultData(
             summary=raw_result.summary,
             internal_links=internal_links,
             external_links=external_links,
             file_links=file_links,
         )
-        
+
         return validated_result, metadata

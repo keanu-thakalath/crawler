@@ -1,6 +1,14 @@
 from domain.exceptions import InvalidUrlError
 from domain.values import ExtractJobResult, ReviewStatus, SummarizeJobResult
-from domain.entities import CrawlJob, ExtractJob, Job, Page, ScrapeJob, Source, SummarizeJob
+from domain.entities import (
+    CrawlJob,
+    ExtractJob,
+    Job,
+    Page,
+    ScrapeJob,
+    Source,
+    SummarizeJob,
+)
 from domain.types import NormalizedUrl
 
 from .exceptions import (
@@ -34,7 +42,7 @@ async def scrape_page(page_url: str, uow: UnitOfWork) -> ScrapeJob:
     if not page:
         raise PageNotFoundError(page_url)
 
-    async for job in page.scrape_page(uow.html_scraper, uow.html_converter):
+    async for job in page.scrape_page(uow.content_scraper):
         await uow.commit()
 
     return job
@@ -110,8 +118,7 @@ async def crawl_source(source_url: str, max_pages: int, uow: UnitOfWork) -> Craw
 
     async for job in source.crawl_source(
         max_pages,
-        uow.html_scraper,
-        uow.html_converter,
+        uow.content_scraper,
         uow.page_link_extractor,
         uow.source_analyzer,
     ):
@@ -142,12 +149,12 @@ async def approve_job_review_status(job_id: str, uow: UnitOfWork) -> Job:
     job = await uow.jobs.get_by_id(job_id)
     if not job:
         raise JobNotFoundError(job_id)
-    
+
     # Check if job outcome supports review status updates
     if not isinstance(job.outcome, (ExtractJobResult, SummarizeJobResult)):
         outcome_type = type(job.outcome).__name__ if job.outcome else "None"
         raise InvalidJobTypeError(job_id, outcome_type)
-    
+
     # Update review status to approved
     job.outcome.review_status = ReviewStatus.APPROVED
     await uow.commit()
@@ -158,16 +165,16 @@ async def edit_job_outcome_summary(job_id: str, summary: str, uow: UnitOfWork) -
     # Validate summary is not empty or whitespace-only
     if not summary or not summary.strip():
         raise InvalidSummaryValueError(summary)
-    
+
     job = await uow.jobs.get_by_id(job_id)
     if not job:
         raise JobNotFoundError(job_id)
-    
+
     # Check if job outcome supports summary updates
     if not isinstance(job.outcome, (ExtractJobResult, SummarizeJobResult)):
         outcome_type = type(job.outcome).__name__ if job.outcome else "None"
         raise InvalidJobTypeError(job_id, outcome_type)
-    
+
     # Update the summary
     job.outcome.summary = summary.strip()
     await uow.commit()

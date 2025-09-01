@@ -16,19 +16,14 @@ from nlp_processing.page_link_extractor import (
 )
 from nlp_processing.source_analyzer import LiteLLMSourceAnalyzer, SourceAnalyzer
 from nlp_processing.structured_completion import LiteLLMStructuredCompletion
-from scraping.html_scraper import CrawlbaseScraper, HtmlScraper
-from scraping.html_to_markdown_converter import (
-    HtmlToMarkdownConverter,
-    MarkdownifyConverter,
-)
+from scraping.content_scraper import ContentScraper, UniversalContentScraper
 
 
 class UnitOfWork(abc.ABC):
     sources: SourceRepository
     pages: PageRepository
     jobs: JobRepository
-    html_scraper: HtmlScraper
-    html_converter: HtmlToMarkdownConverter
+    content_scraper: ContentScraper
     page_link_extractor: PageLinkExtractor
     source_analyzer: SourceAnalyzer
 
@@ -56,8 +51,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.sources = SqlAlchemySourceRepository(self.session)
         self.pages = SqlAlchemyPageRepository(self.session)
         self.jobs = SqlAlchemyJobRepository(self.session)
-        self.html_scraper = CrawlbaseScraper()
-        self.html_converter = MarkdownifyConverter()
+        self.content_scraper = UniversalContentScraper()
 
         # Create shared structured completion instance
         structured_completion = LiteLLMStructuredCompletion()
