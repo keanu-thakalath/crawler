@@ -2,7 +2,7 @@ import asyncio
 import os
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
 from dotenv import load_dotenv
 
@@ -70,7 +70,7 @@ async def run_async_migrations():
     and associate a connection with the context.
     """
     database_url = config.get_main_option("sqlalchemy.url") or os.getenv("DATABASE_URL")
-    
+
     connectable = create_async_engine(
         database_url,
         poolclass=pool.NullPool,

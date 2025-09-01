@@ -23,4 +23,6 @@ class NormalizedUrl(str):
     def from_path(cls, path: str, base_url: Self):
         return cls(urljoin(base_url, path))
 
-
+    @classmethod
+    def is_pdf(cls, url: Self) -> bool:
+        return url.lower().endswith(".pdf")

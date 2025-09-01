@@ -34,6 +34,7 @@ class FocusArea(Enum):
     COMMUNITY = "Community"
     BUSINESS = "Business"
 
+
 class ReviewStatus(Enum):
     UNREVIEWED = "Unreviewed"
     APPROVED = "Approved"

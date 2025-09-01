@@ -5,8 +5,7 @@ from typing import AsyncGenerator, Generic, List, Optional, TypeVar, Union
 
 from nlp_processing.page_link_extractor import PageLinkExtractor
 from nlp_processing.source_analyzer import SourceAnalyzer
-from scraping.html_scraper import HtmlScraper
-from scraping.html_to_markdown_converter import HtmlToMarkdownConverter
+from scraping.content_scraper import ContentScraper
 
 from .types import NormalizedUrl
 from .values import (
@@ -44,7 +43,7 @@ class Page:
     jobs: List[PageJob] = field(default_factory=list)
 
     async def scrape_page(
-        self, html_scraper: HtmlScraper, html_converter: HtmlToMarkdownConverter
+        self, content_scraper: ContentScraper
     ) -> AsyncGenerator[ScrapeJob, None]:
         job = ScrapeJob()
         self.jobs.append(job)
@@ -52,8 +51,7 @@ class Page:
         yield job
 
         try:
-            html_content = await html_scraper.scrape_url(self.url)
-            markdown_content = html_converter.convert_to_markdown(html_content)
+            markdown_content = await content_scraper.scrape_url_to_markdown(self.url)
 
             job_result = ScrapeJobResult(markdown=markdown_content)
             job.outcome = job_result
@@ -109,8 +107,7 @@ class Source:
     async def crawl_source(
         self,
         max_pages: int,
-        html_scraper: HtmlScraper,
-        html_converter: HtmlToMarkdownConverter,
+        content_scraper: ContentScraper,
         page_link_extractor: PageLinkExtractor,
         source_analyzer: SourceAnalyzer,
     ) -> AsyncGenerator[Union[CrawlJob, ScrapeJob, ExtractJob, SummarizeJob], None]:
@@ -138,9 +135,7 @@ class Source:
                     current_page = Page(url=current_url)
                     self.pages.append(current_page)
 
-                async for scrape_job in current_page.scrape_page(
-                    html_scraper, html_converter
-                ):
+                async for scrape_job in current_page.scrape_page(content_scraper):
                     yield scrape_job
 
                 if isinstance(scrape_job.outcome, ScrapeJobResult):

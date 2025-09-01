@@ -149,7 +149,9 @@ async def approve_job_endpoint(job_id: str, uow: UnitOfWork) -> Job:
 
 
 @patch("/jobs/{job_id:str}/summary")
-async def edit_job_summary_endpoint(job_id: str, data: EditJobSummaryRequest, uow: UnitOfWork) -> Job:
+async def edit_job_summary_endpoint(
+    job_id: str, data: EditJobSummaryRequest, uow: UnitOfWork
+) -> Job:
     try:
         return await services.edit_job_outcome_summary(job_id, data.summary, uow)
     except JobNotFoundError as e:
@@ -182,6 +184,7 @@ app = Litestar(
         approve_job_endpoint,
         edit_job_summary_endpoint,
         reset_database_endpoint,
+        scrape_page_endpoint,
     ],
     openapi_config=OpenAPIConfig(
         title="Crawler Demo",

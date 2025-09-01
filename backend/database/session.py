@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from .models import Models, metadata
+from .models import Models
 
 load_dotenv()
 
