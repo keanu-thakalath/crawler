@@ -2,6 +2,7 @@ import {
   type Job,
   type ExtractJobOutcome,
   type SummarizeJobOutcome,
+  type JobError,
 } from "~/api";
 
 interface TaskStatusProps {
@@ -9,12 +10,14 @@ interface TaskStatusProps {
 }
 
 export default function TaskStatus(props: TaskStatusProps) {
-  const getStatusColor = (hasOutcome: boolean) => {
-    if (hasOutcome) {
-      return { backgroundColor: "#d4edda", color: "#19a239ff" };
-    } else {
+  const getStatusColor = (job: Job) => {
+    if (!job.outcome) {
       return { backgroundColor: "#fff3cd", color: "#bb8e06ff" };
     }
+    if ("message" in job.outcome) {
+      return { backgroundColor: "#f8d7da", color: "#721c24" };
+    }
+    return { backgroundColor: "#d4edda", color: "#19a239ff" };
   };
 
   const getReviewStatusColor = (reviewStatus: string) => {
@@ -26,7 +29,13 @@ export default function TaskStatus(props: TaskStatusProps) {
   };
 
   const getStatusText = (job: Job) => {
-    return job.outcome ? "COMPLETED" : "RUNNING";
+    if (!job.outcome) {
+      return "RUNNING";
+    }
+    if ("message" in job.outcome) {
+      return "ERROR";
+    }
+    return "COMPLETED";
   };
 
   const hasReviewStatus = (
@@ -41,7 +50,7 @@ export default function TaskStatus(props: TaskStatusProps) {
         style={{
           padding: "2px 6px",
           "border-radius": "4px",
-          ...getStatusColor(!!props.job.outcome),
+          ...getStatusColor(props.job),
         }}
       >
         {getStatusText(props.job)}

@@ -4,6 +4,10 @@ import { getAuthToken } from "./utils/auth";
 const BASE_URL = process.env.BACKEND_URL;
 
 // Job outcome types based on backend domain models
+export interface JobError {
+  message: string;
+  created_at: string;
+}
 export interface ScrapeJobOutcome {
   created_at: string;
   markdown: string;
@@ -35,7 +39,7 @@ export interface SummarizeJobOutcome {
 export interface Job {
   job_id: string;
   created_at: string;
-  outcome?: ScrapeJobOutcome | ExtractJobOutcome | SummarizeJobOutcome;
+  outcome?: ScrapeJobOutcome | ExtractJobOutcome | SummarizeJobOutcome | JobError;
 }
 
 export interface Page {
