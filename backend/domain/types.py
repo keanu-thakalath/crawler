@@ -1,8 +1,12 @@
+from enum import Enum
 from typing import Self
 from urllib.parse import urljoin
 
 from .exceptions import InvalidUrlError
 
+class UrlType(Enum):
+    HTML = "html"
+    PDF = "pdf"
 
 class NormalizedUrl(str):
     def __new__(cls, url: str):
@@ -23,6 +27,8 @@ class NormalizedUrl(str):
     def from_path(cls, path: str, base_url: Self):
         return cls(urljoin(base_url, path))
 
-    @classmethod
-    def is_pdf(cls, url: Self) -> bool:
-        return url.lower().endswith(".pdf")
+    @property
+    def type(self) -> UrlType:
+        if self.lower().endswith(".pdf"):
+            return UrlType.PDF
+        return UrlType.HTML
