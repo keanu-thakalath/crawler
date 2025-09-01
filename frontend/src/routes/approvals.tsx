@@ -21,24 +21,6 @@ export default function Approvals() {
 
     // Search through all sources and their pages/jobs
     for (const source of allSources) {
-      // Check source-level jobs (summarize jobs)
-      for (const job of source.jobs) {
-        if (
-          job.outcome &&
-          "summary" in job.outcome &&
-          "data_origin" in job.outcome &&
-          job.outcome.review_status === "Unreviewed"
-        ) {
-          return {
-            job,
-            outcome: job.outcome as api.SummarizeJobOutcome,
-            type: "summarize" as const,
-            sourceUrl: source.url,
-            pageUrl: null,
-          };
-        }
-      }
-
       // Check page-level jobs (extract jobs)
       for (const page of source.pages) {
         for (const job of page.jobs) {
@@ -56,6 +38,24 @@ export default function Approvals() {
               pageUrl: page.url,
             };
           }
+        }
+      }
+
+      // Check source-level jobs (summarize jobs)
+      for (const job of source.jobs) {
+        if (
+          job.outcome &&
+          "summary" in job.outcome &&
+          "data_origin" in job.outcome &&
+          job.outcome.review_status === "Unreviewed"
+        ) {
+          return {
+            job,
+            outcome: job.outcome as api.SummarizeJobOutcome,
+            type: "summarize" as const,
+            sourceUrl: source.url,
+            pageUrl: null,
+          };
         }
       }
     }
