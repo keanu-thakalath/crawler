@@ -5,6 +5,7 @@ from domain.types import NormalizedUrl
 
 from .exceptions import (
     InvalidJobTypeError,
+    InvalidSummaryValueError,
     JobNotFoundError,
     PageAlreadyExistsError,
     PageNotFoundError,
@@ -149,5 +150,25 @@ async def approve_job_review_status(job_id: str, uow: UnitOfWork) -> Job:
     
     # Update review status to approved
     job.outcome.review_status = ReviewStatus.APPROVED
+    await uow.commit()
+    return job
+
+
+async def edit_job_outcome_summary(job_id: str, summary: str, uow: UnitOfWork) -> Job:
+    # Validate summary is not empty or whitespace-only
+    if not summary or not summary.strip():
+        raise InvalidSummaryValueError(summary)
+    
+    job = await uow.jobs.get_by_id(job_id)
+    if not job:
+        raise JobNotFoundError(job_id)
+    
+    # Check if job outcome supports summary updates
+    if not isinstance(job.outcome, (ExtractJobResult, SummarizeJobResult)):
+        outcome_type = type(job.outcome).__name__ if job.outcome else "None"
+        raise InvalidJobTypeError(job_id, outcome_type)
+    
+    # Update the summary
+    job.outcome.summary = summary.strip()
     await uow.commit()
     return job

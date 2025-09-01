@@ -33,5 +33,10 @@ class AddPageToSourceRequest:
 
 
 @dataclass
+class EditJobSummaryRequest:
+    summary: str
+
+
+@dataclass
 class TokenResponse:
     token: Token
