@@ -17,6 +17,7 @@ export interface ExtractJobOutcome {
   external_links: string[];
   file_links: string[];
   created_at: string;
+  review_status: string;
 }
 
 export interface SummarizeJobOutcome {
@@ -27,6 +28,7 @@ export interface SummarizeJobOutcome {
   source_format: string;
   focus_area: string;
   created_at: string;
+  review_status: string;
 }
 
 // Job types
@@ -131,4 +133,34 @@ export async function exchangeKey(key: string) {
     return;
   }
   return (await response.json()) as TokenResponse;
+}
+
+export async function approveJob(jobId: string) {
+  const response = await fetch(`${BASE_URL}/jobs/${jobId}/approve`, {
+    method: "PATCH",
+    headers: {
+      ...(await withAuth()),
+    },
+  });
+  if (!response.ok) {
+    const json = await response.json();
+    throw new Error(json.detail);
+  }
+  return (await response.json()) as Job;
+}
+
+export async function editJobSummary(jobId: string, summary: string) {
+  const response = await fetch(`${BASE_URL}/jobs/${jobId}/summary`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(await withAuth()),
+    },
+    body: JSON.stringify({ summary }),
+  });
+  if (!response.ok) {
+    const json = await response.json();
+    throw new Error(json.detail);
+  }
+  return (await response.json()) as Job;
 }

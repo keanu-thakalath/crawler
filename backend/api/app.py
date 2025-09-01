@@ -19,6 +19,7 @@ from .dependencies import provide_uow
 from .dto import (
     AddPageToSourceRequest,
     CrawlRequest,
+    EditJobSummaryRequest,
     ExtractRequest,
     ScrapeRequest,
     SummarizeRequest,
@@ -31,6 +32,7 @@ from domain.exceptions import InvalidUrlError
 from service import services
 from service.exceptions import (
     InvalidJobTypeError,
+    InvalidSummaryValueError,
     JobNotFoundError,
     PageAlreadyExistsError,
     PageNotFoundError,
@@ -146,6 +148,18 @@ async def approve_job_endpoint(job_id: str, uow: UnitOfWork) -> Job:
         raise ClientException(status_code=HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
+@patch("/jobs/{job_id:str}/summary")
+async def edit_job_summary_endpoint(job_id: str, data: EditJobSummaryRequest, uow: UnitOfWork) -> Job:
+    try:
+        return await services.edit_job_outcome_summary(job_id, data.summary, uow)
+    except JobNotFoundError as e:
+        raise ClientException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
+    except InvalidJobTypeError as e:
+        raise ClientException(status_code=HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    except InvalidSummaryValueError as e:
+        raise ClientException(status_code=HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+
 @delete("/reset")
 async def reset_database_endpoint(state: State) -> None:
     engine = state.engine
@@ -166,6 +180,7 @@ app = Litestar(
         crawl_url_endpoint,
         exchange_key_endpoint,
         approve_job_endpoint,
+        edit_job_summary_endpoint,
         reset_database_endpoint,
     ],
     openapi_config=OpenAPIConfig(
