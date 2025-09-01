@@ -1,6 +1,6 @@
 from typing import List
 
-from litestar import Litestar, delete, get, post
+from litestar import Litestar, delete, get, patch, post
 from litestar.config.cors import CORSConfig
 from litestar.datastructures import State
 from litestar.exceptions import ClientException
@@ -26,10 +26,12 @@ from .dto import (
 )
 from .lifespan import db_connection
 from database.models import metadata
-from domain.entities import ExtractJob, Page, ScrapeJob, Source, SummarizeJob
+from domain.entities import ExtractJob, Job, Page, ScrapeJob, Source, SummarizeJob
 from domain.exceptions import InvalidUrlError
 from service import services
 from service.exceptions import (
+    InvalidJobTypeError,
+    JobNotFoundError,
     PageAlreadyExistsError,
     PageNotFoundError,
     SourceAlreadyExistsError,
@@ -134,6 +136,16 @@ async def exchange_key_endpoint(key: Key) -> TokenResponse:
         raise ClientException(status_code=HTTP_400_BAD_REQUEST, detail="Invalid key")
 
 
+@patch("/jobs/{job_id:str}/approve")
+async def approve_job_endpoint(job_id: str, uow: UnitOfWork) -> Job:
+    try:
+        return await services.approve_job_review_status(job_id, uow)
+    except JobNotFoundError as e:
+        raise ClientException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
+    except InvalidJobTypeError as e:
+        raise ClientException(status_code=HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+
 @delete("/reset")
 async def reset_database_endpoint(state: State) -> None:
     engine = state.engine
@@ -153,6 +165,7 @@ app = Litestar(
         delete_source_endpoint,
         crawl_url_endpoint,
         exchange_key_endpoint,
+        approve_job_endpoint,
         reset_database_endpoint,
     ],
     openapi_config=OpenAPIConfig(

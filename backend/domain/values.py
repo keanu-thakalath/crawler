@@ -50,10 +50,11 @@ class JobError:
     created_at: datetime = field(default_factory=datetime.now)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class LLMResponseMetadata:
     input_tokens: int
     output_tokens: int
+    review_status: ReviewStatus = ReviewStatus.UNREVIEWED
 
 
 @dataclass(kw_only=True)
@@ -67,7 +68,6 @@ class ExtractJobResultData:
     internal_links: List[NormalizedUrl]
     external_links: List[NormalizedUrl]
     file_links: List[NormalizedUrl]
-    review_status: ReviewStatus
 
 
 @dataclass(kw_only=True)
