@@ -86,14 +86,19 @@ export async function addSource(url: string) {
   }
 }
 
-export async function crawlUrl(url: string, maxPages: number) {
+export async function crawlUrl(url: string, maxPages: number, extractPrompt?: string, summarizePrompt?: string) {
   const response = await fetch(`${BASE_URL}/crawl`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(await withAuth()),
     },
-    body: JSON.stringify({ url, max_pages: maxPages }),
+    body: JSON.stringify({ 
+      url, 
+      max_pages: maxPages,
+      extract_prompt: extractPrompt,
+      summarize_prompt: summarizePrompt
+    }),
   });
   if (!response.ok) {
     const json = await response.json();
@@ -161,6 +166,46 @@ export async function editJobSummary(jobId: string, summary: string) {
       ...(await withAuth()),
     },
     body: JSON.stringify({ summary }),
+  });
+  if (!response.ok) {
+    const json = await response.json();
+    throw new Error(json.detail);
+  }
+  return (await response.json()) as Job;
+}
+
+export async function extractPage(pageUrl: string, markdownContent: string, prompt?: string) {
+  const response = await fetch(`${BASE_URL}/extract`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(await withAuth()),
+    },
+    body: JSON.stringify({ 
+      page_url: pageUrl, 
+      markdown_content: markdownContent,
+      prompt: prompt
+    }),
+  });
+  if (!response.ok) {
+    const json = await response.json();
+    throw new Error(json.detail);
+  }
+  return (await response.json()) as Job;
+}
+
+export async function summarizeSource(sourceUrl: string, allPageSummaries: string, prompt?: string) {
+  const response = await fetch(`${BASE_URL}/summarize`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(await withAuth()),
+    },
+    body: JSON.stringify({ 
+      source_url: sourceUrl, 
+      all_page_summaries: allPageSummaries,
+      prompt: prompt
+    }),
   });
   if (!response.ok) {
     const json = await response.json();
