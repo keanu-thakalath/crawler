@@ -49,13 +49,13 @@ async def scrape_page(page_url: str, uow: UnitOfWork) -> ScrapeJob:
 
 
 async def extract_page(
-    page_url: str, markdown_content: str, uow: UnitOfWork
+    page_url: str, markdown_content: str, uow: UnitOfWork, custom_prompt: str | None = None
 ) -> ExtractJob:
     page = await uow.pages.get(page_url)
     if not page:
         raise PageNotFoundError(page_url)
 
-    async for job in page.extract_page(uow.page_link_extractor, markdown_content):
+    async for job in page.extract_page(uow.page_link_extractor, markdown_content, custom_prompt):
         await uow.commit()
 
     return job
@@ -99,19 +99,19 @@ async def add_page_to_source(source_url: str, page_url: str, uow: UnitOfWork) ->
 
 
 async def summarize_source(
-    source_url: str, all_page_summaries: str, uow: UnitOfWork
+    source_url: str, all_page_summaries: str, uow: UnitOfWork, custom_prompt: str | None = None
 ) -> SummarizeJob:
     source = await uow.sources.get(source_url)
     if not source:
         raise SourceNotFoundError(source_url)
 
-    async for job in source.summarize_source(uow.source_analyzer, all_page_summaries):
+    async for job in source.summarize_source(uow.source_analyzer, all_page_summaries, custom_prompt):
         await uow.commit()
 
     return job
 
 
-async def crawl_source(source_url: str, max_pages: int, uow: UnitOfWork) -> CrawlJob:
+async def crawl_source(source_url: str, max_pages: int, uow: UnitOfWork, extract_prompt: str | None = None, summarize_prompt: str | None = None) -> CrawlJob:
     source = await uow.sources.get(source_url)
     if not source:
         raise SourceNotFoundError(source_url)
@@ -121,6 +121,8 @@ async def crawl_source(source_url: str, max_pages: int, uow: UnitOfWork) -> Craw
         uow.content_scraper,
         uow.page_link_extractor,
         uow.source_analyzer,
+        extract_prompt,
+        summarize_prompt,
     ):
         await uow.commit()
 

@@ -7,6 +7,8 @@ from .auth import Token
 class CrawlRequest:
     url: str
     max_pages: int = 3
+    extract_prompt: str | None = None
+    summarize_prompt: str | None = None
 
 
 @dataclass
@@ -18,12 +20,14 @@ class ScrapeRequest:
 class ExtractRequest:
     page_url: str
     markdown_content: str
+    prompt: str | None = None
 
 
 @dataclass
 class SummarizeRequest:
     source_url: str
     all_page_summaries: str
+    prompt: str | None = None
 
 
 @dataclass

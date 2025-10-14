@@ -56,6 +56,7 @@ extract_job_results = Table(
     Column("summary", Text, nullable=False),
     Column("input_tokens", Integer, nullable=False),
     Column("output_tokens", Integer, nullable=False),
+    Column("prompt", Text, nullable=False),
     Column("internal_links", JSONList, nullable=False),
     Column("external_links", JSONList, nullable=False),
     Column("file_links", JSONList, nullable=False),
@@ -78,6 +79,8 @@ summarize_job_results = Table(
     Column("focus_area", Enum(FocusArea), nullable=False),
     Column("input_tokens", Integer, nullable=False),
     Column("output_tokens", Integer, nullable=False),
+    Column("prompt", Text, nullable=False, default=
+    ''),
     Column(
         "review_status",
         Enum(ReviewStatus),
