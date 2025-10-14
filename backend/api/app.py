@@ -185,6 +185,11 @@ app = Litestar(
         edit_job_summary_endpoint,
         reset_database_endpoint,
         scrape_page_endpoint,
+        extract_page_endpoint,
+        summarize_source_endpoint,
+        get_source_endpoint,
+        get_page_endpoint,
+        add_page_to_source_endpoint,
     ],
     openapi_config=OpenAPIConfig(
         title="Crawler Demo",
