@@ -50,4 +50,5 @@ class LiteLLMStructuredCompletion:
         return msgspec.convert(content, response_type), LLMResponseMetadata(
             input_tokens=resp.usage.prompt_tokens,
             output_tokens=resp.usage.completion_tokens,
+            prompt=prompt,
         )

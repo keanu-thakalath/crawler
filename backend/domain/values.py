@@ -55,6 +55,7 @@ class JobError:
 class LLMResponseMetadata:
     input_tokens: int
     output_tokens: int
+    prompt: str
     review_status: ReviewStatus = ReviewStatus.UNREVIEWED
 
 

@@ -64,7 +64,7 @@ async def scrape_page_endpoint(data: ScrapeRequest, uow: UnitOfWork) -> ScrapeJo
 @post("/extract")
 async def extract_page_endpoint(data: ExtractRequest, uow: UnitOfWork) -> ExtractJob:
     try:
-        return await services.extract_page(data.page_url, data.markdown_content, uow)
+        return await services.extract_page(data.page_url, data.markdown_content, uow, data.prompt)
     except PageNotFoundError as e:
         raise ClientException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
 
@@ -110,7 +110,7 @@ async def summarize_source_endpoint(
 ) -> SummarizeJob:
     try:
         return await services.summarize_source(
-            data.source_url, data.all_page_summaries, uow
+            data.source_url, data.all_page_summaries, uow, data.prompt
         )
     except SourceNotFoundError as e:
         raise ClientException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
@@ -119,7 +119,7 @@ async def summarize_source_endpoint(
 @post("/crawl")
 async def crawl_url_endpoint(data: CrawlRequest) -> None:
     """Start a crawl task for the given URL"""
-    crawl_url.delay(data.url, data.max_pages)
+    crawl_url.delay(data.url, data.max_pages, data.extract_prompt, data.summarize_prompt)
 
 
 @delete("/sources")

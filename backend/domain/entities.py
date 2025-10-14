@@ -65,7 +65,7 @@ class Page:
             yield job
 
     async def extract_page(
-        self, page_link_extractor: PageLinkExtractor, markdown_content: str
+        self, page_link_extractor: PageLinkExtractor, markdown_content: str, custom_prompt: str | None = None
     ) -> AsyncGenerator[ExtractJob, None]:
         job = ExtractJob()
         self.jobs.append(job)
@@ -77,7 +77,7 @@ class Page:
                 job_result_data,
                 llm_response_metadata,
             ) = await page_link_extractor.extract_links_and_summary(
-                self.url, markdown_content
+                self.url, markdown_content, custom_prompt
             )
 
             job_result = ExtractJobResult(
@@ -110,6 +110,8 @@ class Source:
         content_scraper: ContentScraper,
         page_link_extractor: PageLinkExtractor,
         source_analyzer: SourceAnalyzer,
+        extract_prompt: str | None = None,
+        summarize_prompt: str | None = None,
     ) -> AsyncGenerator[Union[CrawlJob, ScrapeJob, ExtractJob, SummarizeJob], None]:
         crawl_job = CrawlJob()
         self.jobs.append(crawl_job)
@@ -140,7 +142,7 @@ class Source:
 
                 if isinstance(scrape_job.outcome, ScrapeJobResult):
                     async for extract_job in current_page.extract_page(
-                        page_link_extractor, scrape_job.outcome.markdown
+                        page_link_extractor, scrape_job.outcome.markdown, extract_prompt
                     ):
                         yield extract_job
 
@@ -157,7 +159,7 @@ class Source:
 
             all_page_summaries = "\n\n".join(page_summaries)
             async for summary_job in self.summarize_source(
-                source_analyzer, all_page_summaries
+                source_analyzer, all_page_summaries, summarize_prompt
             ):
                 yield summary_job
 
@@ -176,7 +178,7 @@ class Source:
             yield crawl_job
 
     async def summarize_source(
-        self, source_analyzer: SourceAnalyzer, all_page_summaries: str
+        self, source_analyzer: SourceAnalyzer, all_page_summaries: str, custom_prompt: str | None = None
     ) -> AsyncGenerator[SummarizeJob, None]:
         job = SummarizeJob()
         self.jobs.append(job)
@@ -187,7 +189,7 @@ class Source:
             (
                 job_result_data,
                 llm_response_metadata,
-            ) = await source_analyzer.analyze_content(all_page_summaries, str(self.url))
+            ) = await source_analyzer.analyze_content(all_page_summaries, str(self.url), custom_prompt)
 
             job_result = SummarizeJobResult(
                 **job_result_data.__dict__, **llm_response_metadata.__dict__

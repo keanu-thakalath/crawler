@@ -19,7 +19,7 @@ class ExtractJobResultRawData:
 class PageLinkExtractor(abc.ABC):
     @abc.abstractmethod
     async def extract_links_and_summary(
-        self, url: NormalizedUrl, markdown: str
+        self, url: NormalizedUrl, markdown: str, custom_prompt: str | None = None
     ) -> tuple[ExtractJobResultData, LLMResponseMetadata]:
         raise NotImplementedError
 
@@ -36,10 +36,9 @@ class LiteLLMPageLinkExtractor(PageLinkExtractor):
             return None
 
     async def extract_links_and_summary(
-        self, url: NormalizedUrl, markdown: str
+        self, url: NormalizedUrl, markdown: str, custom_prompt: str | None = None
     ) -> tuple[ExtractJobResultData, LLMResponseMetadata]:
-        prompt = f"""
-Analyze the following markdown content and extract relevant links, plus provide a summary.
+        base_prompt = """Analyze the following markdown content and extract relevant links, plus provide a summary.
 
 Guidelines:
 - Only include links that are relevant to the content (no login pages, social media, contact forms, privacy policies, terms of service)
@@ -49,14 +48,21 @@ Guidelines:
 - If internal or file links are relative, prepend the base path to them to form a complete URL
 - Look for links with file extensions like .pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx, .zip, .png, .jpg, .jpeg, .gif, .svg, etc.
 - Exclude navigation, footer, and header links unless they're content-relevant
-- Focus on links to articles, resources, documentation, or related content
+- Focus on links to articles, resources, documentation, or related content"""
 
-Markdown content for URL {url}:
-{markdown}
-"""
+        prompt_to_use = custom_prompt if custom_prompt else base_prompt
+        full_prompt = f"{prompt_to_use}\n\nMarkdown content for URL {url}:\n{markdown}"
 
         raw_result, metadata = await self.structured_completion.complete(
-            prompt, ExtractJobResultRawData
+            full_prompt, ExtractJobResultRawData
+        )
+        
+        # Override the stored prompt to exclude markdown content
+        metadata = LLMResponseMetadata(
+            input_tokens=metadata.input_tokens,
+            output_tokens=metadata.output_tokens,
+            prompt=prompt_to_use,
+            review_status=metadata.review_status,
         )
 
         def validate_urls(urls: List[str]) -> List[NormalizedUrl]:
