@@ -10,13 +10,11 @@ from database.repositories import (
     SqlAlchemyPageRepository,
     SqlAlchemySourceRepository,
 )
-from nlp_processing.page_link_extractor import (
-    LiteLLMPageLinkExtractor,
-    PageLinkExtractor,
-)
+from nlp_processing.page_summarizer import LiteLLMPageSummarizer, PageSummarizer
 from nlp_processing.source_analyzer import LiteLLMSourceAnalyzer, SourceAnalyzer
 from nlp_processing.structured_completion import LiteLLMStructuredCompletion
 from scraping.content_scraper import ContentScraper, UniversalContentScraper
+from scraping.manual_link_extractor import HtmlManualLinkExtractor, ManualLinkExtractor
 
 
 class UnitOfWork(abc.ABC):
@@ -24,7 +22,8 @@ class UnitOfWork(abc.ABC):
     pages: PageRepository
     jobs: JobRepository
     content_scraper: ContentScraper
-    page_link_extractor: PageLinkExtractor
+    manual_link_extractor: ManualLinkExtractor
+    page_summarizer: PageSummarizer
     source_analyzer: SourceAnalyzer
 
     async def __aenter__(self) -> UnitOfWork:
@@ -52,11 +51,12 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.pages = SqlAlchemyPageRepository(self.session)
         self.jobs = SqlAlchemyJobRepository(self.session)
         self.content_scraper = UniversalContentScraper()
+        self.manual_link_extractor = HtmlManualLinkExtractor()
 
         # Create shared structured completion instance
         structured_completion = LiteLLMStructuredCompletion()
 
-        self.page_link_extractor = LiteLLMPageLinkExtractor(structured_completion)
+        self.page_summarizer = LiteLLMPageSummarizer(structured_completion)
         self.source_analyzer = LiteLLMSourceAnalyzer(structured_completion)
         return await super().__aenter__()
 

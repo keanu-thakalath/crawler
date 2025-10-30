@@ -20,7 +20,7 @@ T = TypeVar("T", bound=DataclassProtocol)
 
 
 class LiteLLMStructuredCompletion:
-    def __init__(self, model="anthropic/claude-3-5-sonnet-20241022"):
+    def __init__(self, model="anthropic/claude-haiku-4-5-20251001"):
         self.model = model
 
         supported_params = get_supported_openai_params(model=self.model) or []

@@ -62,14 +62,17 @@ class LLMResponseMetadata:
 @dataclass(kw_only=True)
 class ScrapeJobResult(JobResult):
     markdown: str
+    internal_links: List[NormalizedUrl] = field(default_factory=list)
+    external_links: List[NormalizedUrl] = field(default_factory=list)
+    file_links: List[NormalizedUrl] = field(default_factory=list)
 
 
 @dataclass
 class ExtractJobResultData:
     summary: str
-    internal_links: List[NormalizedUrl]
-    external_links: List[NormalizedUrl]
-    file_links: List[NormalizedUrl]
+    key_facts: str
+    key_quotes: str
+    key_figures: str
 
 
 @dataclass(kw_only=True)
@@ -80,6 +83,9 @@ class ExtractJobResult(JobResult, ExtractJobResultData, LLMResponseMetadata):
 @dataclass
 class SummarizeJobResultData:
     summary: str
+    key_facts: str
+    key_quotes: str
+    key_figures: str
     data_origin: DataOrigin
     source_format: SourceFormat
     focus_area: FocusArea

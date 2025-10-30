@@ -1,11 +1,13 @@
 import uuid
+import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import AsyncGenerator, Generic, List, Optional, TypeVar, Union
 
-from nlp_processing.page_link_extractor import PageLinkExtractor
+from nlp_processing.page_summarizer import PageSummarizer
 from nlp_processing.source_analyzer import SourceAnalyzer
 from scraping.content_scraper import ContentScraper
+from scraping.manual_link_extractor import ManualLinkExtractor
 
 from .types import NormalizedUrl
 from .values import (
@@ -43,7 +45,7 @@ class Page:
     jobs: List[PageJob] = field(default_factory=list)
 
     async def scrape_page(
-        self, content_scraper: ContentScraper
+        self, content_scraper: ContentScraper, manual_link_extractor: ManualLinkExtractor
     ) -> AsyncGenerator[ScrapeJob, None]:
         job = ScrapeJob()
         self.jobs.append(job)
@@ -52,20 +54,30 @@ class Page:
 
         try:
             markdown_content = await content_scraper.scrape_url_to_markdown(self.url)
+            html_content = await content_scraper.html_scraper.scrape_url(self.url)
+            
+            internal_links, external_links, file_links = manual_link_extractor.extract_links_from_html(
+                html_content, self.url
+            )
 
-            job_result = ScrapeJobResult(markdown=markdown_content)
+            job_result = ScrapeJobResult(
+                markdown=markdown_content,
+                internal_links=internal_links,
+                external_links=external_links,
+                file_links=file_links
+            )
             job.outcome = job_result
 
             yield job
 
         except Exception as e:
-            job_error = JobError(message=str(e))
+            job_error = JobError(message=f"{traceback.format_exc()}\n{str(e)}")
             job.outcome = job_error
 
             yield job
 
     async def extract_page(
-        self, page_link_extractor: PageLinkExtractor, markdown_content: str, custom_prompt: str | None = None
+        self, page_summarizer: PageSummarizer, markdown_content: str, custom_prompt: str | None = None
     ) -> AsyncGenerator[ExtractJob, None]:
         job = ExtractJob()
         self.jobs.append(job)
@@ -74,25 +86,22 @@ class Page:
 
         try:
             (
-                job_result_data,
+                summary_result,
                 llm_response_metadata,
-            ) = await page_link_extractor.extract_links_and_summary(
+            ) = await page_summarizer.summarize_page(
                 self.url, markdown_content, custom_prompt
             )
 
             job_result = ExtractJobResult(
                 **llm_response_metadata.__dict__,
-                summary=job_result_data.summary,
-                internal_links=job_result_data.internal_links,
-                external_links=job_result_data.external_links,
-                file_links=job_result_data.file_links,
+                **summary_result.__dict__
             )
             job.outcome = job_result
 
             yield job
 
         except Exception as e:
-            job_error = JobError(message=str(e))
+            job_error = JobError(message=f"{traceback.format_exc()}\n{str(e)}")
             job.outcome = job_error
 
             yield job
@@ -108,7 +117,8 @@ class Source:
         self,
         max_pages: int,
         content_scraper: ContentScraper,
-        page_link_extractor: PageLinkExtractor,
+        manual_link_extractor: ManualLinkExtractor,
+        page_summarizer: PageSummarizer,
         source_analyzer: SourceAnalyzer,
         extract_prompt: str | None = None,
         summarize_prompt: str | None = None,
@@ -137,12 +147,14 @@ class Source:
                     current_page = Page(url=current_url)
                     self.pages.append(current_page)
 
-                async for scrape_job in current_page.scrape_page(content_scraper):
+                async for scrape_job in current_page.scrape_page(content_scraper, manual_link_extractor):
                     yield scrape_job
 
                 if isinstance(scrape_job.outcome, ScrapeJobResult):
                     async for extract_job in current_page.extract_page(
-                        page_link_extractor, scrape_job.outcome.markdown, extract_prompt
+                        page_summarizer, 
+                        scrape_job.outcome.markdown, 
+                        extract_prompt
                     ):
                         yield extract_job
 
@@ -150,7 +162,7 @@ class Source:
                         page_summaries.append(
                             f"Markdown for {current_page.url}:\n\n{extract_job.outcome.summary}"
                         )
-                        for internal_link in extract_job.outcome.internal_links:
+                        for internal_link in scrape_job.outcome.internal_links:
                             if internal_link not in url_queue:
                                 url_queue.append(internal_link)
                                 total_pages_found += 1

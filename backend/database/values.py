@@ -46,6 +46,9 @@ scrape_job_results = Table(
     Column("job_id", String(255), ForeignKey("jobs.job_id"), primary_key=True),
     Column("created_at", String(255), nullable=False),
     Column("markdown", Text, nullable=False),
+    Column("internal_links", JSONList, nullable=False),
+    Column("external_links", JSONList, nullable=False),
+    Column("file_links", JSONList, nullable=False),
 )
 
 extract_job_results = Table(
@@ -54,12 +57,12 @@ extract_job_results = Table(
     Column("job_id", String(255), ForeignKey("jobs.job_id"), primary_key=True),
     Column("created_at", String(255), nullable=False),
     Column("summary", Text, nullable=False),
+    Column("key_facts", Text, nullable=False),
+    Column("key_quotes", Text, nullable=False),
+    Column("key_figures", Text, nullable=False),
     Column("input_tokens", Integer, nullable=False),
     Column("output_tokens", Integer, nullable=False),
     Column("prompt", Text, nullable=False),
-    Column("internal_links", JSONList, nullable=False),
-    Column("external_links", JSONList, nullable=False),
-    Column("file_links", JSONList, nullable=False),
     Column(
         "review_status",
         Enum(ReviewStatus),
@@ -74,6 +77,9 @@ summarize_job_results = Table(
     Column("job_id", String(255), ForeignKey("jobs.job_id"), primary_key=True),
     Column("created_at", String(255), nullable=False),
     Column("summary", Text, nullable=False),
+    Column("key_facts", Text, nullable=False),
+    Column("key_quotes", Text, nullable=False),
+    Column("key_figures", Text, nullable=False),
     Column("data_origin", Enum(DataOrigin), nullable=False),
     Column("source_format", Enum(SourceFormat), nullable=False),
     Column("focus_area", Enum(FocusArea), nullable=False),

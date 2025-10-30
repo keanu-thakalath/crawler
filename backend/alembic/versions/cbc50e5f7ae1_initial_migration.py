@@ -73,9 +73,6 @@ def upgrade() -> None:
         sa.Column("summary", sa.Text(), nullable=False),
         sa.Column("input_tokens", sa.Integer(), nullable=False),
         sa.Column("output_tokens", sa.Integer(), nullable=False),
-        sa.Column("internal_links", sa.String(length=1024), nullable=False),
-        sa.Column("external_links", sa.String(length=1024), nullable=False),
-        sa.Column("file_links", sa.String(length=1024), nullable=False),
         sa.Column(
             "review_status",
             sa.Enum("UNREVIEWED", "APPROVED", name="reviewstatus"),

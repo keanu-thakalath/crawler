@@ -1,5 +1,5 @@
 from domain.exceptions import InvalidUrlError
-from domain.values import ExtractJobResult, ReviewStatus, SummarizeJobResult
+from domain.values import ExtractJobResult, ReviewStatus, ScrapeJobResult, SummarizeJobResult
 from domain.entities import (
     CrawlJob,
     ExtractJob,
@@ -42,7 +42,7 @@ async def scrape_page(page_url: str, uow: UnitOfWork) -> ScrapeJob:
     if not page:
         raise PageNotFoundError(page_url)
 
-    async for job in page.scrape_page(uow.content_scraper):
+    async for job in page.scrape_page(uow.content_scraper, uow.manual_link_extractor):
         await uow.commit()
 
     return job
@@ -55,7 +55,9 @@ async def extract_page(
     if not page:
         raise PageNotFoundError(page_url)
 
-    async for job in page.extract_page(uow.page_link_extractor, markdown_content, custom_prompt):
+    async for job in page.extract_page(
+        uow.page_summarizer, markdown_content, custom_prompt
+    ):
         await uow.commit()
 
     return job
@@ -119,14 +121,16 @@ async def crawl_source(source_url: str, max_pages: int, uow: UnitOfWork, extract
     async for job in source.crawl_source(
         max_pages,
         uow.content_scraper,
-        uow.page_link_extractor,
+        uow.manual_link_extractor,
+        uow.page_summarizer,
         uow.source_analyzer,
         extract_prompt,
         summarize_prompt,
     ):
         await uow.commit()
 
-        if isinstance(job.outcome, ExtractJobResult):
+        # External links are now extracted during scraping, so we check ScrapeJobResult
+        if isinstance(job.outcome, ScrapeJobResult):
             for external_link in job.outcome.external_links:
                 try:
                     await add_source(external_link, uow)
