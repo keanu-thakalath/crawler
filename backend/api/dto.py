@@ -8,7 +8,6 @@ class CrawlRequest:
     url: str
     max_pages: int = 3
     extract_prompt: str | None = None
-    summarize_prompt: str | None = None
 
 
 @dataclass

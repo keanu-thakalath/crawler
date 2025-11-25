@@ -35,9 +35,21 @@ class FocusArea(Enum):
     BUSINESS = "Business"
 
 
+class DatasetPresence(Enum):
+    PRESENT = "Present"
+    ABSENT = "Absent"
+
+
 class ReviewStatus(Enum):
     UNREVIEWED = "Unreviewed"
     APPROVED = "Approved"
+
+
+class Relevancy(Enum):
+    HIGH = "High"
+    MEDIUM = "Medium"
+    LOW = "Low"
+    NOT_RELEVANT = "Not Relevant"
 
 
 @dataclass(kw_only=True)
@@ -56,6 +68,7 @@ class LLMResponseMetadata:
     input_tokens: int
     output_tokens: int
     prompt: str
+    model: str
     review_status: ReviewStatus = ReviewStatus.UNREVIEWED
 
 
@@ -73,6 +86,8 @@ class ExtractJobResultData:
     key_facts: str
     key_quotes: str
     key_figures: str
+    trustworthiness: str
+    relevancy: Relevancy
 
 
 @dataclass(kw_only=True)
@@ -89,6 +104,7 @@ class SummarizeJobResultData:
     data_origin: DataOrigin
     source_format: SourceFormat
     focus_area: FocusArea
+    dataset_presence: DatasetPresence
 
 
 @dataclass(kw_only=True)

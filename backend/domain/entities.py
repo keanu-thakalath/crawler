@@ -15,6 +15,7 @@ from .values import (
     ExtractJobResult,
     JobError,
     JobResult,
+    ReviewStatus,
     ScrapeJobResult,
     SummarizeJobResult,
 )
@@ -113,16 +114,32 @@ class Source:
     pages: List[Page] = field(default_factory=list)
     jobs: List[SourceJob] = field(default_factory=list)
 
+    def all_extract_jobs_approved(self) -> bool:
+        """Check if all extract jobs for this source have been approved."""
+        extract_jobs = []
+        
+        for page in self.pages:
+            for job in page.jobs:
+                if isinstance(job, ExtractJob) and job.outcome:
+                    if isinstance(job.outcome, ExtractJobResult):
+                        extract_jobs.append(job)
+        
+        if not extract_jobs:
+            return False  # No extract jobs exist
+            
+        return all(
+            job.outcome.review_status == ReviewStatus.APPROVED 
+            for job in extract_jobs
+        )
+
     async def crawl_source(
         self,
         max_pages: int,
         content_scraper: ContentScraper,
         manual_link_extractor: ManualLinkExtractor,
         page_summarizer: PageSummarizer,
-        source_analyzer: SourceAnalyzer,
         extract_prompt: str | None = None,
-        summarize_prompt: str | None = None,
-    ) -> AsyncGenerator[Union[CrawlJob, ScrapeJob, ExtractJob, SummarizeJob], None]:
+    ) -> AsyncGenerator[Union[CrawlJob, ScrapeJob, ExtractJob], None]:
         crawl_job = CrawlJob()
         self.jobs.append(crawl_job)
 
@@ -130,7 +147,6 @@ class Source:
 
         try:
             url_queue: List[NormalizedUrl] = [self.url]
-            page_summaries: List[str] = []
             pages_crawled = 0
             total_pages_found = 1
 
@@ -159,9 +175,6 @@ class Source:
                         yield extract_job
 
                     if isinstance(extract_job.outcome, ExtractJobResult):
-                        page_summaries.append(
-                            f"Markdown for {current_page.url}:\n\n{extract_job.outcome.summary}"
-                        )
                         for internal_link in scrape_job.outcome.internal_links:
                             if internal_link not in url_queue:
                                 url_queue.append(internal_link)
@@ -169,12 +182,9 @@ class Source:
 
                 pages_crawled += 1
 
-            all_page_summaries = "\n\n".join(page_summaries)
-            async for summary_job in self.summarize_source(
-                source_analyzer, all_page_summaries, summarize_prompt
-            ):
-                yield summary_job
-
+            # Note: Source summarization is now triggered automatically 
+            # when all extract jobs are approved, not at end of crawl
+            
             crawl_job.outcome = CrawlJobResult(
                 pages_crawled=pages_crawled,
                 total_pages_found=total_pages_found,

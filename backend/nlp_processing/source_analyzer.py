@@ -2,6 +2,7 @@ import abc
 
 from domain.values import (
     DataOrigin,
+    DatasetPresence,
     FocusArea,
     LLMResponseMetadata,
     SourceFormat,
@@ -33,6 +34,7 @@ class LiteLLMSourceAnalyzer(SourceAnalyzer):
             [f'- "{option.value}"' for option in SourceFormat]
         )
         focus_area_options = "\n".join([f'- "{option.value}"' for option in FocusArea])
+        dataset_presence_options = "\n".join([f'- "{option.value}"' for option in DatasetPresence])
 
         base_prompt = f"""Analyze the following combined summaries of pages from a website for a research campaign investigating the effects of Concentrated Animal Feeding Operations (CAFOs) in Washington state. We're conducting a literature review on environmental and community impacts of CAFOs.
 
@@ -57,6 +59,11 @@ Source Format options:
 Focus Area options:
 {focus_area_options}
 
+Dataset Presence options:
+{dataset_presence_options}
+
+6. Dataset Presence: Determine whether the source contains or references any datasets, data files, or raw data that could be useful for research analysis.
+
 Guidelines:
 - Synthesize information rather than just listing individual page content
 - Identify connections and patterns across the different pages
@@ -74,6 +81,7 @@ Guidelines:
             input_tokens=metadata.input_tokens,
             output_tokens=metadata.output_tokens,
             prompt=prompt_to_use,
+            model=metadata.model,
             review_status=metadata.review_status,
         )
         

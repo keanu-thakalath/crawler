@@ -119,7 +119,7 @@ async def summarize_source_endpoint(
 @post("/crawl")
 async def crawl_url_endpoint(data: CrawlRequest) -> None:
     """Start a crawl task for the given URL"""
-    crawl_url.delay(data.url, data.max_pages, data.extract_prompt, data.summarize_prompt)
+    crawl_url.delay(data.url, data.max_pages, data.extract_prompt)
 
 
 @delete("/sources")

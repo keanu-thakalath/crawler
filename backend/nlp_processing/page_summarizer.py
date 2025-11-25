@@ -2,7 +2,7 @@ import abc
 from dataclasses import dataclass
 
 from domain.types import NormalizedUrl
-from domain.values import LLMResponseMetadata
+from domain.values import LLMResponseMetadata, Relevancy
 
 from .structured_completion import LiteLLMStructuredCompletion
 
@@ -13,6 +13,8 @@ class SummaryResult:
     key_facts: str
     key_quotes: str
     key_figures: str
+    trustworthiness: str
+    relevancy: Relevancy
 
 
 class PageSummarizer(abc.ABC):
@@ -42,12 +44,31 @@ Please extract and structure the following information:
 
 4. Key Figures: Extract important statistics, numbers, percentages, measurements, or quantitative data points relevant to CAFO impacts. This could include pollution levels, livestock numbers, distances, monetary figures, health statistics, etc.
 
+5. Trustworthiness: Analyze the credibility and reliability of this source. Consider:
+   - Source type (peer-reviewed research, government report, news article, blog, etc.)
+   - Author credentials and institutional affiliation
+   - Methodology quality (if research study)
+   - Publication venue reputation
+   - Presence of citations and references
+   - Potential bias or conflicts of interest
+   - Date and currency of information
+   Provide a brief analysis of these factors affecting trustworthiness.
+
+6. Relevancy: Classify how relevant this content is to CAFO research using one of these categories:
+   - "High": Directly discusses CAFOs, concentrated animal agriculture, factory farming, or their specific environmental/health impacts
+   - "Medium": Discusses related topics like livestock agriculture, environmental pollution from agriculture, rural health impacts, or regulatory frameworks that could apply to CAFOs
+   - "Low": Tangentially related to agriculture, environment, or rural communities but not specifically relevant to CAFO impacts
+   - "Not Relevant": No meaningful connection to CAFO research topics
+   Just output one of the categories, no explanation is necessary.
+
 Guidelines:
 - Focus on content relevant to industrial agriculture, environmental impacts, and community effects
 - Prioritize information that would be valuable for understanding CAFO impacts in Washington or similar contexts
 - If the content is not directly related to CAFOs, extract information that could be applicable to environmental or community impact assessment
 - Keep extractions factual and preserve important context
-- If no relevant information is found for a category, note "No relevant information found" for that field"""
+- If no relevant information is found for a category, note "No relevant information found" for that field
+- Be objective in trustworthiness assessment - note both strengths and limitations
+- Base relevancy classification on content substance, not just keywords"""
 
         prompt_to_use = custom_prompt if custom_prompt else base_prompt
         full_prompt = f"{prompt_to_use}\n\nMarkdown content for URL {url}:\n{markdown}"
@@ -61,6 +82,7 @@ Guidelines:
             input_tokens=metadata.input_tokens,
             output_tokens=metadata.output_tokens,
             prompt=prompt_to_use,
+            model=metadata.model,
             review_status=metadata.review_status,
         )
 

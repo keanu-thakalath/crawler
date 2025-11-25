@@ -6,9 +6,11 @@ from sqlalchemy.types import TypeDecorator
 from domain.values import (
     CrawlJobResult,
     DataOrigin,
+    DatasetPresence,
     ExtractJobResult,
     FocusArea,
     JobError,
+    Relevancy,
     ReviewStatus,
     ScrapeJobResult,
     SourceFormat,
@@ -60,9 +62,12 @@ extract_job_results = Table(
     Column("key_facts", Text, nullable=False),
     Column("key_quotes", Text, nullable=False),
     Column("key_figures", Text, nullable=False),
+    Column("trustworthiness", Text, nullable=False),
+    Column("relevancy", Enum(Relevancy), nullable=False),
     Column("input_tokens", Integer, nullable=False),
     Column("output_tokens", Integer, nullable=False),
     Column("prompt", Text, nullable=False),
+    Column("model", String(255), nullable=False),
     Column(
         "review_status",
         Enum(ReviewStatus),
@@ -83,10 +88,12 @@ summarize_job_results = Table(
     Column("data_origin", Enum(DataOrigin), nullable=False),
     Column("source_format", Enum(SourceFormat), nullable=False),
     Column("focus_area", Enum(FocusArea), nullable=False),
+    Column("dataset_presence", Enum(DatasetPresence), nullable=False),
     Column("input_tokens", Integer, nullable=False),
     Column("output_tokens", Integer, nullable=False),
     Column("prompt", Text, nullable=False, default=
     ''),
+    Column("model", String(255), nullable=False),
     Column(
         "review_status",
         Enum(ReviewStatus),
