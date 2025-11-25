@@ -78,7 +78,13 @@ class Page:
             yield job
 
     async def extract_page(
-        self, page_summarizer: PageSummarizer, markdown_content: str, custom_prompt: str | None = None
+        self, 
+        page_summarizer: PageSummarizer, 
+        markdown_content: str, 
+        scraped_internal_links: List[NormalizedUrl],
+        scraped_external_links: List[NormalizedUrl],
+        scraped_file_links: List[NormalizedUrl],
+        custom_prompt: str | None = None
     ) -> AsyncGenerator[ExtractJob, None]:
         job = ExtractJob()
         self.jobs.append(job)
@@ -90,7 +96,12 @@ class Page:
                 summary_result,
                 llm_response_metadata,
             ) = await page_summarizer.summarize_page(
-                self.url, markdown_content, custom_prompt
+                self.url, 
+                markdown_content, 
+                scraped_internal_links,
+                scraped_external_links,
+                scraped_file_links,
+                custom_prompt
             )
 
             job_result = ExtractJobResult(
@@ -169,13 +180,16 @@ class Source:
                 if isinstance(scrape_job.outcome, ScrapeJobResult):
                     async for extract_job in current_page.extract_page(
                         page_summarizer, 
-                        scrape_job.outcome.markdown, 
+                        scrape_job.outcome.markdown,
+                        scrape_job.outcome.internal_links,
+                        scrape_job.outcome.external_links,
+                        scrape_job.outcome.file_links,
                         extract_prompt
                     ):
                         yield extract_job
 
                     if isinstance(extract_job.outcome, ExtractJobResult):
-                        for internal_link in scrape_job.outcome.internal_links:
+                        for internal_link in extract_job.outcome.relevant_internal_links:
                             if internal_link not in url_queue:
                                 url_queue.append(internal_link)
                                 total_pages_found += 1

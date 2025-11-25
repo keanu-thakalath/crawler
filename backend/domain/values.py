@@ -88,6 +88,9 @@ class ExtractJobResultData:
     key_figures: str
     trustworthiness: str
     relevancy: Relevancy
+    relevant_internal_links: List[NormalizedUrl] = field(default_factory=list)
+    relevant_external_links: List[NormalizedUrl] = field(default_factory=list)
+    relevant_file_links: List[NormalizedUrl] = field(default_factory=list)
 
 
 @dataclass(kw_only=True)

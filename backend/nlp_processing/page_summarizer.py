@@ -1,27 +1,22 @@
 import abc
-from dataclasses import dataclass
-
+from typing import List
 from domain.types import NormalizedUrl
-from domain.values import LLMResponseMetadata, Relevancy
+from domain.values import ExtractJobResultData, LLMResponseMetadata
 
 from .structured_completion import LiteLLMStructuredCompletion
-
-
-@dataclass
-class SummaryResult:
-    summary: str
-    key_facts: str
-    key_quotes: str
-    key_figures: str
-    trustworthiness: str
-    relevancy: Relevancy
 
 
 class PageSummarizer(abc.ABC):
     @abc.abstractmethod
     async def summarize_page(
-        self, url: NormalizedUrl, markdown: str, custom_prompt: str | None = None
-    ) -> tuple[SummaryResult, LLMResponseMetadata]:
+        self, 
+        url: NormalizedUrl, 
+        markdown: str, 
+        scraped_internal_links: List[NormalizedUrl],
+        scraped_external_links: List[NormalizedUrl], 
+        scraped_file_links: List[NormalizedUrl],
+        custom_prompt: str | None = None
+    ) -> tuple[ExtractJobResultData, LLMResponseMetadata]:
         raise NotImplementedError
 
 
@@ -30,8 +25,14 @@ class LiteLLMPageSummarizer(PageSummarizer):
         self.structured_completion = structured_completion
 
     async def summarize_page(
-        self, url: NormalizedUrl, markdown: str, custom_prompt: str | None = None
-    ) -> tuple[SummaryResult, LLMResponseMetadata]:
+        self, 
+        url: NormalizedUrl, 
+        markdown: str, 
+        scraped_internal_links: List[NormalizedUrl],
+        scraped_external_links: List[NormalizedUrl], 
+        scraped_file_links: List[NormalizedUrl],
+        custom_prompt: str | None = None
+    ) -> tuple[ExtractJobResultData, LLMResponseMetadata]:
         base_prompt = """Analyze the following markdown content for a research campaign investigating the effects of Concentrated Animal Feeding Operations (CAFOs) in Washington state. We're conducting a literature review on environmental and community impacts of CAFOs.
 
 Please extract and structure the following information:
@@ -61,6 +62,12 @@ Please extract and structure the following information:
    - "Not Relevant": No meaningful connection to CAFO research topics
    Just output one of the categories, no explanation is necessary.
 
+7. Relevant Internal Links: From the provided list of internal links (including PDF links to the same domain), select and rank the most relevant ones for CAFO research. Consider link text, URL structure, and context from the page content. Return up to 10 most relevant internal links, ordered by relevance (most relevant first). Return empty list if none are relevant.
+
+8. Relevant External Links: From the provided list of external links (including PDF links to external domains), select and rank the most relevant ones for CAFO research. Look for links to research institutions, government agencies, environmental organizations, agricultural bodies, or academic sources. Return up to 10 most relevant external links, ordered by relevance (most relevant first). Return empty list if none are relevant.
+
+9. Relevant File Links: From the provided list of file links (non-PDF documents like .doc, .xls, .csv, .zip data files), select and rank the most relevant ones for CAFO research. Prioritize data files, spreadsheets, and downloadable documents. Return up to 10 most relevant file links, ordered by relevance (most relevant first). Return empty list if none are relevant.
+
 Guidelines:
 - Focus on content relevant to industrial agriculture, environmental impacts, and community effects
 - Prioritize information that would be valuable for understanding CAFO impacts in Washington or similar contexts
@@ -70,11 +77,28 @@ Guidelines:
 - Be objective in trustworthiness assessment - note both strengths and limitations
 - Base relevancy classification on content substance, not just keywords"""
 
+        # Build links sections
+        internal_links_text = "\n".join([f"- {link}" for link in scraped_internal_links]) if scraped_internal_links else "No internal links found"
+        external_links_text = "\n".join([f"- {link}" for link in scraped_external_links]) if scraped_external_links else "No external links found"
+        file_links_text = "\n".join([f"- {link}" for link in scraped_file_links]) if scraped_file_links else "No file links found"
+        
         prompt_to_use = custom_prompt if custom_prompt else base_prompt
-        full_prompt = f"{prompt_to_use}\n\nMarkdown content for URL {url}:\n{markdown}"
+        full_prompt = f"""{prompt_to_use}
+
+Internal links found on the page:
+{internal_links_text}
+
+External links found on the page:
+{external_links_text}
+
+File links found on the page:
+{file_links_text}
+
+Markdown content for URL {url}:
+{markdown}"""
 
         raw_result, metadata = await self.structured_completion.complete(
-            full_prompt, SummaryResult
+            full_prompt, ExtractJobResultData
         )
         
         # Override the stored prompt to exclude markdown content
