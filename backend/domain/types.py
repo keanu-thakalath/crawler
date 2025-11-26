@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Self
+from typing import List, Self
 from urllib.parse import urljoin
 
 from .exceptions import InvalidUrlError
@@ -26,6 +26,17 @@ class NormalizedUrl(str):
     @classmethod
     def from_path(cls, path: str, base_url: Self):
         return cls(urljoin(base_url, path))
+    
+    @classmethod
+    def from_string_list(cls, url_strings: List[str]) -> List[Self]:
+        """Convert a list of string URLs to NormalizedUrls, skipping invalid ones."""
+        normalized_urls = []
+        for url_str in url_strings:
+            try:
+                normalized_urls.append(cls(url_str))
+            except InvalidUrlError:
+                pass  # Skip invalid URLs
+        return normalized_urls
 
     @property
     def type(self) -> UrlType:

@@ -1,9 +1,24 @@
 import abc
+from dataclasses import dataclass
 from typing import List
 from domain.types import NormalizedUrl
-from domain.values import ExtractJobResultData, LLMResponseMetadata
+from domain.values import ExtractJobResultData, LLMResponseMetadata, Relevancy
 
 from .structured_completion import LiteLLMStructuredCompletion
+
+
+@dataclass
+class SummaryResult:
+    """Result type for LLM parsing with string URLs that will be converted to NormalizedUrls."""
+    summary: str
+    key_facts: str
+    key_quotes: str
+    key_figures: str
+    trustworthiness: str
+    relevancy: Relevancy
+    relevant_internal_links: List[str]
+    relevant_external_links: List[str]
+    relevant_file_links: List[str]
 
 
 class PageSummarizer(abc.ABC):
@@ -98,7 +113,20 @@ Markdown content for URL {url}:
 {markdown}"""
 
         raw_result, metadata = await self.structured_completion.complete(
-            full_prompt, ExtractJobResultData
+            full_prompt, SummaryResult
+        )
+        
+        # Create ExtractJobResultData with converted URLs
+        extract_result = ExtractJobResultData(
+            summary=raw_result.summary,
+            key_facts=raw_result.key_facts,
+            key_quotes=raw_result.key_quotes,
+            key_figures=raw_result.key_figures,
+            trustworthiness=raw_result.trustworthiness,
+            relevancy=raw_result.relevancy,
+            relevant_internal_links=NormalizedUrl.from_string_list(raw_result.relevant_internal_links),
+            relevant_external_links=NormalizedUrl.from_string_list(raw_result.relevant_external_links),
+            relevant_file_links=NormalizedUrl.from_string_list(raw_result.relevant_file_links)
         )
         
         # Override the stored prompt to exclude markdown content
@@ -110,4 +138,4 @@ Markdown content for URL {url}:
             review_status=metadata.review_status,
         )
 
-        return raw_result, metadata
+        return extract_result, metadata

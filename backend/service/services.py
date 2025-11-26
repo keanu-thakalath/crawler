@@ -1,6 +1,6 @@
 from typing import List
 from domain.exceptions import InvalidUrlError
-from domain.values import ExtractJobResult, ReviewStatus, SummarizeJobResult
+from domain.values import ExtractJobResult, ScrapeJobResult, ReviewStatus, SummarizeJobResult, CrawlJobResult, JobError
 from domain.entities import (
     CrawlJob,
     ExtractJob,
@@ -35,10 +35,7 @@ async def auto_summarize_approved_source(source_url: str, uow: UnitOfWork) -> Su
     
     for page in source.pages:
         for job in page.jobs:
-            if (isinstance(job, ExtractJob) and 
-                job.outcome and 
-                isinstance(job.outcome, ExtractJobResult) and 
-                job.outcome.review_status == ReviewStatus.APPROVED):
+            if (job.outcome and isinstance(job.outcome, ExtractJobResult) and job.outcome.review_status == ReviewStatus.APPROVED):
                 page_summaries.append(
                     f"Markdown for {page.url}:\n\n{job.outcome.summary}"
                 )
@@ -112,6 +109,182 @@ async def extract_page(
 
 async def list_sources(uow: UnitOfWork) -> list[Source]:
     return await uow.sources.list_all()
+
+
+async def get_unreviewed_jobs(uow: UnitOfWork) -> List[Source]:
+    """Get sources with pages containing only unreviewed extract/summarize jobs."""
+    all_sources = await uow.sources.list_all()
+    filtered_sources = []
+    
+    for source in all_sources:
+        # Filter source-level jobs to only unreviewed ones
+        source_jobs = []
+        for job in source.jobs:
+            if (hasattr(job.outcome, 'review_status') and 
+                job.outcome.review_status == ReviewStatus.UNREVIEWED):
+                source_jobs.append(job)
+        
+        # Filter pages to only include those with unreviewed jobs
+        filtered_pages = []
+        for page in source.pages:
+            page_jobs = []
+            for job in page.jobs:
+                if (hasattr(job.outcome, 'review_status') and 
+                    job.outcome.review_status == ReviewStatus.UNREVIEWED):
+                    page_jobs.append(job)
+            
+            if page_jobs:  # Only include page if it has unreviewed jobs
+                page.jobs = page_jobs
+                filtered_pages.append(page)
+        
+        # Only include source if it has unreviewed source-jobs or pages with unreviewed jobs
+        if source_jobs or filtered_pages:
+            source.jobs = source_jobs
+            source.pages = filtered_pages
+            filtered_sources.append(source)
+    
+    return filtered_sources
+
+
+async def get_failed_jobs(uow: UnitOfWork) -> List[Source]:
+    """Get sources with pages containing only failed jobs."""
+    all_sources = await uow.sources.list_all()
+    filtered_sources = []
+    
+    for source in all_sources:
+        # Filter source-level jobs to only failed ones
+        source_jobs = []
+        for job in source.jobs:
+            if isinstance(job.outcome, JobError):
+                source_jobs.append(job)
+        
+        # Filter pages to only include those with failed jobs
+        filtered_pages = []
+        for page in source.pages:
+            page_jobs = []
+            for job in page.jobs:
+                if isinstance(job.outcome, JobError):
+                    page_jobs.append(job)
+            
+            if page_jobs:  # Only include page if it has failed jobs
+                page.jobs = page_jobs
+                filtered_pages.append(page)
+        
+        # Only include source if it has failed source-jobs or pages with failed jobs
+        if source_jobs or filtered_pages:
+            source.jobs = source_jobs
+            source.pages = filtered_pages
+            filtered_sources.append(source)
+    
+    return filtered_sources
+
+
+async def get_crawled_sources(uow: UnitOfWork) -> List[Source]:
+    """Get sources with completed and reviewed summarize jobs. No pages included."""
+    all_sources = await uow.sources.list_all()
+    crawled_sources = []
+    
+    for source in all_sources:
+        # Check if source has a completed summarize job
+        for job in source.jobs:
+            if isinstance(job.outcome, SummarizeJobResult):
+                # Create new source without pages
+                crawled_source = Source(url=source.url, jobs=source.jobs, pages=[])
+                crawled_sources.append(crawled_source)
+                break  # Only need one approved summarize job
+    
+    return crawled_sources
+
+
+async def get_discovered_sources(uow: UnitOfWork) -> List[Source]:
+    """Get sources with no crawl job (discovered via external links). No pages included."""
+    all_sources = await uow.sources.list_all()
+    discovered_sources = []
+    
+    for source in all_sources:
+        # Check if source has any crawl job
+        has_crawl_job = any(isinstance(job.outcome, CrawlJobResult) for job in source.jobs)
+        
+        if not has_crawl_job:
+            # Create new source without pages
+            discovered_source = Source(url=source.url, jobs=source.jobs, pages=[])
+            discovered_sources.append(discovered_source)
+    
+    return discovered_sources
+
+
+async def get_source_only(source_url: str, uow: UnitOfWork) -> Source:
+    """Get source data without page jobs."""
+    source = await uow.sources.get(source_url)
+    if not source:
+        raise SourceNotFoundError(source_url)
+    
+    # Create new source without pages but with source-level jobs
+    return Source(url=source.url, jobs=source.jobs, pages=[])
+
+
+async def crawl_url_with_source_check(url: str, max_pages: int, uow: UnitOfWork, extract_prompt: str | None = None) -> str:
+    """Add source if it doesn't exist, then start crawl. Returns source URL."""
+    from tasks.crawl import crawl_url
+    
+    normalized_url = NormalizedUrl(url)
+    
+    # Check if source exists, if not create it
+    try:
+        await add_source(normalized_url, uow)
+    except SourceAlreadyExistsError:
+        pass  # Source already exists, continue with crawl
+    
+    # Start crawl job
+    crawl_url.delay(normalized_url, max_pages, extract_prompt)
+    return str(normalized_url)
+
+
+def filter_markdown_from_scrape_results(sources: List[Source]) -> List[Source]:
+    """Remove markdown field from ScrapeJobResult in all sources except for specific endpoints."""
+    
+    filtered_sources = []
+    for source in sources:
+        # Filter source jobs
+        filtered_source_jobs = []
+        for job in source.jobs:
+            if isinstance(job.outcome, ScrapeJobResult):
+                # Create new ScrapeJobResult without markdown
+                new_outcome = ScrapeJobResult(
+                    created_at=job.outcome.created_at,
+                    markdown="",  # Remove markdown
+                    internal_links=job.outcome.internal_links,
+                    external_links=job.outcome.external_links,
+                    file_links=job.outcome.file_links
+                )
+                job.outcome = new_outcome
+            filtered_source_jobs.append(job)
+        
+        # Filter page jobs
+        filtered_pages = []
+        for page in source.pages:
+            filtered_page_jobs = []
+            for job in page.jobs:
+                if isinstance(job.outcome, ScrapeJobResult):
+                    # Create new ScrapeJobResult without markdown
+                    new_outcome = ScrapeJobResult(
+                        created_at=job.outcome.created_at,
+                        markdown="",  # Remove markdown
+                        internal_links=job.outcome.internal_links,
+                        external_links=job.outcome.external_links,
+                        file_links=job.outcome.file_links
+                    )
+                    job.outcome = new_outcome
+                filtered_page_jobs.append(job)
+            
+            page.jobs = filtered_page_jobs
+            filtered_pages.append(page)
+        
+        source.jobs = filtered_source_jobs
+        source.pages = filtered_pages
+        filtered_sources.append(source)
+    
+    return filtered_sources
 
 
 async def get_source(source_url: str, uow: UnitOfWork) -> Source:
@@ -211,7 +384,7 @@ async def approve_job_review_status(job_id: str, uow: UnitOfWork) -> Job:
     await uow.commit()
     
     # If this is an extract job, check if all extract jobs for the source are now approved
-    if isinstance(job, ExtractJob):
+    if isinstance(job.outcome, ExtractJobResult):
         # Get the source URL from the page URL
         page = await uow.pages.get(job.page_url)
         if page:

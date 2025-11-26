@@ -56,7 +56,8 @@ class LiteLLMStructuredCompletion:
                 model=self.model,
             )
         except msgspec.ValidationError as e:
-            return msgspec.convert(content['$ref'], response_type), LLMResponseMetadata(
+            key = [key for key in ['$ref', '$PARAMETER_NAME'] if key in content][0]
+            return msgspec.convert(content[key], response_type), LLMResponseMetadata(
                 input_tokens=resp.usage.prompt_tokens,
                 output_tokens=resp.usage.completion_tokens,
                 prompt=prompt,
