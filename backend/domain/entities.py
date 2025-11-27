@@ -131,6 +131,7 @@ class Source:
         
         for page in self.pages:
             for job in page.jobs:
+                print(job)
                 if job.outcome and isinstance(job.outcome, ExtractJobResult):
                         extract_jobs.append(job)
         

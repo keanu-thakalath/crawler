@@ -5,14 +5,14 @@ import * as api from "~/api";
 import { usePolling } from "~/utils/polling";
 import EditableSummary from "~/components/EditableSummary";
 
-const getSources = query(async () => {
-  return await api.getSources();
-}, "sources");
+const getUnreviewedJobs = query(async () => {
+  return await api.getUnreviewedJobs();
+}, "unreviewedJobs");
 
 export default function Approvals() {
-  const sources = createAsync(() => getSources());
+  const sources = createAsync(() => getUnreviewedJobs());
 
-  usePolling(getSources.key);
+  usePolling(getUnreviewedJobs.key);
 
   // Find the next unreviewed job declaratively from getSources()
   const nextUnreviewedJob = createMemo(() => {
@@ -27,12 +27,12 @@ export default function Approvals() {
           if (
             job.outcome &&
             "summary" in job.outcome &&
-            "internal_links" in job.outcome &&
-            job.outcome.review_status === "Unreviewed"
+            "relevant_internal_links" in job.outcome &&
+            job.outcome.review_status === api.ReviewStatus.UNREVIEWED
           ) {
             return {
               job,
-              outcome: job.outcome as api.ExtractJobOutcome,
+              outcome: job.outcome as api.ExtractJobResult,
               type: "extract" as const,
               sourceUrl: source.url,
               pageUrl: page.url,
@@ -47,11 +47,11 @@ export default function Approvals() {
           job.outcome &&
           "summary" in job.outcome &&
           "data_origin" in job.outcome &&
-          job.outcome.review_status === "Unreviewed"
+          job.outcome.review_status === api.ReviewStatus.UNREVIEWED
         ) {
           return {
             job,
-            outcome: job.outcome as api.SummarizeJobOutcome,
+            outcome: job.outcome as api.SummarizeJobResult,
             type: "summarize" as const,
             sourceUrl: source.url,
             pageUrl: null,
@@ -77,7 +77,7 @@ export default function Approvals() {
         const scrapeJob = page.jobs.find(
           (job) => job.outcome && "markdown" in job.outcome
         );
-        return scrapeJob?.outcome as api.ScrapeJobOutcome | null;
+        return scrapeJob?.outcome as api.ScrapeJobResult | null;
       }
     }
     return null;
@@ -110,13 +110,10 @@ export default function Approvals() {
             <div>
               <div
                 style={{
-                  padding: "16px",
-                  "background-color": "#4443cd",
                   "border-radius": "8px",
                   "margin-bottom": "20px",
                 }}
               >
-                <h3>Job Pending Approval</h3>
                 <p>
                   <strong>Job ID:</strong> {jobInfo().job.job_id}
                 </p>
@@ -153,27 +150,47 @@ export default function Approvals() {
                   {new Date(jobInfo().job.created_at).toLocaleString()}
                 </p>
 
+                <Show when={jobInfo().type === "extract"}>
+                  <div style={{ "margin-top": "12px" }}>
+                    <p>
+                      <strong>Trustworthiness:</strong>{" "}
+                      {
+                        (jobInfo().outcome as api.ExtractJobResult)
+                          .trustworthiness
+                      }
+                    </p>
+                    <p>
+                      <strong>Relevancy:</strong>{" "}
+                      {(jobInfo().outcome as api.ExtractJobResult).relevancy}
+                    </p>
+                  </div>
+                </Show>
+
                 <Show when={jobInfo().type === "summarize"}>
                   <div style={{ "margin-top": "12px" }}>
                     <p>
                       <strong>Data Origin:</strong>{" "}
                       {
-                        (jobInfo().outcome as api.SummarizeJobOutcome)
+                        (jobInfo().outcome as api.SummarizeJobResult)
                           .data_origin
                       }
                     </p>
                     <p>
                       <strong>Source Format:</strong>{" "}
                       {
-                        (jobInfo().outcome as api.SummarizeJobOutcome)
+                        (jobInfo().outcome as api.SummarizeJobResult)
                           .source_format
                       }
                     </p>
                     <p>
                       <strong>Focus Area:</strong>{" "}
+                      {(jobInfo().outcome as api.SummarizeJobResult).focus_area}
+                    </p>
+                    <p>
+                      <strong>Dataset Presence:</strong>{" "}
                       {
-                        (jobInfo().outcome as api.SummarizeJobOutcome)
-                          .focus_area
+                        (jobInfo().outcome as api.SummarizeJobResult)
+                          .dataset_presence
                       }
                     </p>
                   </div>
@@ -198,6 +215,55 @@ export default function Approvals() {
                   initialSummary={jobInfo().outcome.summary}
                   jobId={jobInfo().job.job_id}
                 />
+              </Show>
+
+              {/* Show additional structured data */}
+              <Show
+                when={
+                  jobInfo().outcome.key_facts ||
+                  jobInfo().outcome.key_quotes ||
+                  jobInfo().outcome.key_figures
+                }
+              >
+                <details style={{ "margin-top": "24px" }}>
+                  <summary style={{ cursor: "pointer", "font-weight": "bold" }}>
+                    View Additional Analysis Details
+                  </summary>
+                  <div
+                    style={{
+                      "margin-top": "12px",
+                      padding: "16px",
+                      "border-radius": "4px",
+                    }}
+                  >
+                    <Show when={jobInfo().outcome.key_facts}>
+                      <div style={{ "margin-bottom": "16px" }}>
+                        <h4>Key Facts:</h4>
+                        <p style={{ "white-space": "pre-wrap" }}>
+                          {jobInfo().outcome.key_facts}
+                        </p>
+                      </div>
+                    </Show>
+
+                    <Show when={jobInfo().outcome.key_quotes}>
+                      <div style={{ "margin-bottom": "16px" }}>
+                        <h4>Key Quotes:</h4>
+                        <p style={{ "white-space": "pre-wrap" }}>
+                          {jobInfo().outcome.key_quotes}
+                        </p>
+                      </div>
+                    </Show>
+
+                    <Show when={jobInfo().outcome.key_figures}>
+                      <div style={{ "margin-bottom": "16px" }}>
+                        <h4>Key Figures:</h4>
+                        <p style={{ "white-space": "pre-wrap" }}>
+                          {jobInfo().outcome.key_figures}
+                        </p>
+                      </div>
+                    </Show>
+                  </div>
+                </details>
               </Show>
 
               {/* Show scraped content for extract jobs as metadata */}

@@ -187,7 +187,7 @@ async def get_crawled_sources(uow: UnitOfWork) -> List[Source]:
     for source in all_sources:
         # Check if source has a completed summarize job
         for job in source.jobs:
-            if isinstance(job.outcome, SummarizeJobResult):
+            if isinstance(job.outcome, CrawlJobResult):
                 # Create new source without pages
                 crawled_source = Source(url=source.url, jobs=source.jobs, pages=[])
                 crawled_sources.append(crawled_source)
@@ -203,7 +203,7 @@ async def get_discovered_sources(uow: UnitOfWork) -> List[Source]:
     
     for source in all_sources:
         # Check if source has any crawl job
-        has_crawl_job = any(isinstance(job.outcome, CrawlJobResult) for job in source.jobs)
+        has_crawl_job = len(source.jobs) != 0
         
         if not has_crawl_job:
             # Create new source without pages
@@ -213,6 +213,26 @@ async def get_discovered_sources(uow: UnitOfWork) -> List[Source]:
     return discovered_sources
 
 
+async def get_in_progress_sources(uow: UnitOfWork) -> List[Source]:
+    """Get sources with jobs but no CrawlJobResult (crawl in progress). No pages included."""
+    all_sources = await uow.sources.list_all()
+    in_progress_sources = []
+    
+    for source in all_sources:
+        # Check if source has any job
+        has_job = len(source.jobs) > 0
+        
+        # Check if source has any CrawlJobResult (completed crawl)
+        has_crawl_result = any(isinstance(job.outcome, CrawlJobResult) for job in source.jobs)
+        
+        if has_job and not has_crawl_result:
+            # Create new source without pages
+            in_progress_source = Source(url=source.url, jobs=source.jobs, pages=[])
+            in_progress_sources.append(in_progress_source)
+    
+    return in_progress_sources
+
+
 async def get_source_only(source_url: str, uow: UnitOfWork) -> Source:
     """Get source data without page jobs."""
     source = await uow.sources.get(source_url)
@@ -220,7 +240,7 @@ async def get_source_only(source_url: str, uow: UnitOfWork) -> Source:
         raise SourceNotFoundError(source_url)
     
     # Create new source without pages but with source-level jobs
-    return Source(url=source.url, jobs=source.jobs, pages=[])
+    return Source(url=source.url, jobs=source.jobs, pages=[Page(page.url) for page in source.pages])
 
 
 async def crawl_url_with_source_check(url: str, max_pages: int, uow: UnitOfWork, extract_prompt: str | None = None) -> str:

@@ -1,261 +1,360 @@
-import { createAsync, query, useParams, action, revalidate, useSubmission } from "@solidjs/router";
-import { Suspense, For, Show, createMemo, createSignal } from "solid-js";
+import { createAsync, query, useParams } from "@solidjs/router";
+import { Suspense, For, Show, createMemo } from "solid-js";
 import * as api from "~/api";
-import { usePolling } from "~/utils/polling";
-import PageItem from "~/components/PageItem";
-import TaskStatus from "~/components/TaskStatus";
-
-const getSources = query(async () => {
-  return await api.getSources();
-}, "sources");
-
-const summarizeAction = action(async (formData: FormData) => {
-  const sourceUrl = formData.get("sourceUrl") as string;
-  const allPageSummaries = formData.get("allPageSummaries") as string;
-  const prompt = formData.get("prompt") as string;
-  
-  if (!sourceUrl) throw new Error("Source URL is required");
-  if (!allPageSummaries) throw new Error("Page summaries are required");
-
-  await api.summarizeSource(sourceUrl, allPageSummaries, prompt || undefined);
-  await revalidate("sources");
-  return {};
-}, "summarizeSource");
 
 export default function SourceDetail() {
   const params = useParams();
   const decodedUrl = decodeURIComponent(params.url);
-  const sources = createAsync(() => getSources());
-  const [summarizePrompt, setSummarizePrompt] = createSignal("");
-  const summarizeSubmission = useSubmission(summarizeAction);
 
-  usePolling(getSources.key);
+  const getSourceData = query(async () => {
+    return await api.getSource(decodedUrl);
+  }, "sourceDetail");
 
-  const currentSource = createMemo(() => {
-    const allSources = sources();
-    return allSources?.find((source) => source.url === decodedUrl);
-  });
+  const source = createAsync(() => getSourceData());
 
+  // Find the latest summarize job result
   const summarizeResult = createMemo(() => {
-    const source = currentSource();
-    if (!source) return null;
+    const sourceData = source();
+    if (!sourceData) return null;
 
-    const summarizeJobs = source.jobs.filter(
-      (job) =>
-        job.outcome && "summary" in job.outcome && "data_origin" in job.outcome
+    const summarizeJobs = sourceData.jobs.filter(
+      (job) => job.outcome && "data_origin" in job.outcome
     );
-    const lastSummarizeJob = summarizeJobs[summarizeJobs.length - 1];
-    return lastSummarizeJob?.outcome as api.SummarizeJobOutcome | undefined;
+
+    if (summarizeJobs.length === 0) return null;
+
+    // Get the most recent job
+    const latestJob = summarizeJobs.sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )[0];
+
+    return latestJob?.outcome as api.SummarizeJobResult | null;
   });
-
-  const getJobStatus = () => {
-    const source = currentSource();
-    if (!source || source.jobs.length === 0) return "No jobs";
-
-    const hasRunning = source.jobs.some((job) => !job.outcome);
-    const allCompleted = source.jobs.every((job) => job.outcome);
-
-    if (hasRunning) return "Processing";
-    if (allCompleted) return "Completed";
-    return "Pending";
-  };
-
-  const getPageSummaries = () => {
-    const source = currentSource();
-    if (!source) return "";
-
-    const summaries: string[] = [];
-    for (const page of source.pages) {
-      const extractJobs = page.jobs.filter(
-        (job) =>
-          job.outcome &&
-          "summary" in job.outcome &&
-          "internal_links" in job.outcome
-      );
-      const lastExtractJob = extractJobs[extractJobs.length - 1];
-      if (lastExtractJob?.outcome && "summary" in lastExtractJob.outcome) {
-        summaries.push(`Markdown for ${page.url}:\n\n${lastExtractJob.outcome.summary}`);
-      }
-    }
-    return summaries.join("\n\n");
-  };
 
   return (
     <Suspense
       fallback={<section aria-busy="true">Loading source details...</section>}
     >
-      <section>
-        <p>
-          <strong>URL:</strong> {decodedUrl}
-        </p>
+      <Show when={source()}>
+        <section>
+          <h2>Source Details</h2>
 
-        <p>
-          <strong>Status:</strong>
-          <span
+          <div
             style={{
-              "margin-left": "8px",
-              padding: "2px 6px",
-              "border-radius": "4px",
-              "font-size": "12px",
-              "background-color":
-                getJobStatus() === "Completed" ? "#d4edda" : "#fff3cd",
-              color: getJobStatus() === "Completed" ? "#155724" : "#856404",
+              "margin-bottom": "24px",
+              padding: "16px",
+              "border-radius": "8px",
             }}
-            aria-busy={getJobStatus() === "Processing"}
           >
-            {getJobStatus()}
-          </span>
-        </p>
-
-        <Show when={getPageSummaries()}>
-          <section style={{ 
-            "margin-bottom": "24px", 
-            padding: "16px", 
-            border: "1px solid #ddd", 
-            "border-radius": "8px",
-            "background-color": "#f9f9f9"
-          }}>
-            <p>
-              <strong>Summarize Source:</strong>
+            <p style={{ margin: "0 0 8px 0" }}>
+              <strong>Source URL:</strong>
             </p>
-            <form action={summarizeAction} method="post">
-              <input type="hidden" name="sourceUrl" value={decodedUrl} />
-              <input type="hidden" name="allPageSummaries" value={getPageSummaries()} />
-              
-              <textarea
-                name="prompt"
-                value={summarizePrompt()}
-                onInput={(e) => setSummarizePrompt(e.target.value)}
-                placeholder="Enter custom summarization prompt (optional)"
+            <a
+              href={decodedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: "#4443cd",
+                "text-decoration": "none",
+                "word-break": "break-all",
+              }}
+            >
+              {decodedUrl}
+            </a>
+          </div>
+
+          {/* Display Summarize Job Information */}
+          <Show when={summarizeResult()}>
+            <div
+              style={{
+                "margin-bottom": "24px",
+                padding: "20px",
+                border: "1px solid #ddd",
+                "border-radius": "8px",
+                "box-shadow": "0 2px 4px rgba(0,0,0,0.1)",
+              }}
+            >
+              <h3 style={{ "margin-top": "0", color: "#4443cd" }}>
+                Source Summary
+              </h3>
+
+              <div style={{ "margin-bottom": "16px" }}>
+                <h4>Summary:</h4>
+                <p style={{ "white-space": "pre-wrap", "line-height": "1.5" }}>
+                  {summarizeResult()!.summary}
+                </p>
+              </div>
+
+              <Show when={summarizeResult()!.key_facts}>
+                <div style={{ "margin-bottom": "16px" }}>
+                  <h4>Key Facts:</h4>
+                  <p
+                    style={{ "white-space": "pre-wrap", "line-height": "1.5" }}
+                  >
+                    {summarizeResult()!.key_facts}
+                  </p>
+                </div>
+              </Show>
+
+              <Show when={summarizeResult()!.key_quotes}>
+                <div style={{ "margin-bottom": "16px" }}>
+                  <h4>Key Quotes:</h4>
+                  <p
+                    style={{
+                      "white-space": "pre-wrap",
+                      "line-height": "1.5",
+                      "font-style": "italic",
+                    }}
+                  >
+                    {summarizeResult()!.key_quotes}
+                  </p>
+                </div>
+              </Show>
+
+              <Show when={summarizeResult()!.key_figures}>
+                <div style={{ "margin-bottom": "16px" }}>
+                  <h4>Key Figures:</h4>
+                  <p
+                    style={{ "white-space": "pre-wrap", "line-height": "1.5" }}
+                  >
+                    {summarizeResult()!.key_figures}
+                  </p>
+                </div>
+              </Show>
+
+              <div
                 style={{
-                  width: "100%",
-                  height: "80px",
-                  "margin-bottom": "12px",
-                  padding: "8px",
-                  "border-radius": "4px",
-                  border: "1px solid #ccc",
-                  "font-family": "monospace",
-                  "font-size": "12px"
-                }}
-                aria-invalid={summarizeSubmission.error && !!summarizeSubmission.error}
-              />
-              <button
-                type="submit"
-                disabled={summarizeSubmission.pending}
-                aria-busy={summarizeSubmission.pending}
-                style={{
-                  padding: "8px 16px",
-                  "background-color": "#28a745",
-                  color: "white",
-                  border: "none",
-                  "border-radius": "4px",
-                  cursor: summarizeSubmission.pending ? "not-allowed" : "pointer",
-                  opacity: summarizeSubmission.pending ? 0.6 : 1
+                  display: "grid",
+                  "grid-template-columns":
+                    "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: "12px",
+                  "margin-top": "20px",
                 }}
               >
-                {summarizeSubmission.pending ? "Summarizing..." : "Summarize"}
-              </button>
-
-              {summarizeSubmission.error && (
-                <div style={{ 
-                  "margin-top": "12px", 
-                  color: "#dc3545",
-                  "font-size": "14px"
-                }}>
-                  Error: {summarizeSubmission.error.message}
+                <div>
+                  <strong>Data Origin:</strong>
+                  <div
+                    style={{
+                      "margin-top": "4px",
+                      "border-radius": "4px",
+                      "font-size": "0.9em",
+                    }}
+                  >
+                    {summarizeResult()!.data_origin}
+                  </div>
                 </div>
-              )}
-            </form>
-          </section>
-        </Show>
 
-        <Show when={currentSource()?.jobs && currentSource()!.jobs.length > 0}>
-          <section>
-            <p>
-              <strong>Jobs:</strong>
-            </p>
-            <ul>
-              <For each={currentSource()!.jobs}>
-                {(job) => (
-                  <li>
-                    {job.job_id}: <TaskStatus job={job} />
-                    <div style={{ "font-size": "0.8em", color: "#666" }}>
-                      Created: {new Date(job.created_at).toLocaleString()}
+                <div>
+                  <strong>Source Format:</strong>
+                  <div
+                    style={{
+                      "margin-top": "4px",
+                      "border-radius": "4px",
+                      "font-size": "0.9em",
+                    }}
+                  >
+                    {summarizeResult()!.source_format}
+                  </div>
+                </div>
+
+                <div>
+                  <strong>Focus Area:</strong>
+                  <div
+                    style={{
+                      "margin-top": "4px",
+                      "border-radius": "4px",
+                      "font-size": "0.9em",
+                    }}
+                  >
+                    {summarizeResult()!.focus_area}
+                  </div>
+                </div>
+
+                <div>
+                  <strong>Dataset Presence:</strong>
+                  <div
+                    style={{
+                      "margin-top": "4px",
+                      padding: "4px 8px",
+                      "background-color":
+                        summarizeResult()!.dataset_presence === "Present"
+                          ? "#d4edda"
+                          : "#f8d7da",
+                      color:
+                        summarizeResult()!.dataset_presence === "Present"
+                          ? "#155724"
+                          : "#721c24",
+                      "border-radius": "4px",
+                      "font-size": "0.9em",
+                    }}
+                  >
+                    {summarizeResult()!.dataset_presence}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  "margin-top": "16px",
+                  "padding-top": "16px",
+                  "border-top": "1px solid #eee",
+                }}
+              >
+                <p style={{ color: "#666", "font-size": "0.9em", margin: "0" }}>
+                  <strong>Review Status:</strong>{" "}
+                  {summarizeResult()!.review_status} •
+                  <strong> Token Usage:</strong> Input:{" "}
+                  {summarizeResult()!.input_tokens}, Output:{" "}
+                  {summarizeResult()!.output_tokens} •<strong> Model:</strong>{" "}
+                  {summarizeResult()!.model}
+                </p>
+              </div>
+            </div>
+          </Show>
+
+          {/* Display Pages */}
+          <Show when={source()!.pages && source()!.pages.length > 0}>
+            <div
+              style={{
+                "margin-bottom": "24px",
+                padding: "20px",
+                border: "1px solid #ddd",
+                "border-radius": "8px",
+                "box-shadow": "0 2px 4px rgba(0,0,0,0.1)",
+              }}
+            >
+              <h3 style={{ "margin-top": "0", color: "#4443cd" }}>
+                Pages ({source()!.pages.length})
+              </h3>
+
+              <div
+                style={{
+                  display: "flex",
+                  "flex-direction": "column",
+                  gap: "12px",
+                }}
+              >
+                <For each={source()!.pages}>
+                  {(page) => (
+                    <div
+                      style={{
+                        padding: "12px",
+                        "border-radius": "6px",
+                        border: "1px solid #e9ecef",
+                      }}
+                    >
+                      <div style={{ "margin-bottom": "8px" }}>
+                        <a
+                          href={`/page/${encodeURIComponent(page.url)}`}
+                          style={{
+                            color: "#4443cd",
+                            "text-decoration": "none",
+                            "word-break": "break-all",
+                            "font-weight": "500",
+                          }}
+                        >
+                          {page.url}
+                        </a>
+                      </div>
+                      <div style={{ "margin-bottom": "8px" }}>
+                        <a
+                          href={page.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: "#666",
+                            "text-decoration": "none",
+                            "font-size": "0.8em",
+                          }}
+                        >
+                          🔗 Visit Original
+                        </a>
+                      </div>
+
+                      <div
+                        style={{
+                          "font-size": "0.85em",
+                          color: "#666",
+                          display: "flex",
+                          "align-items": "center",
+                          gap: "16px",
+                        }}
+                      >
+                        <span>
+                          <strong>Jobs:</strong> {page.jobs.length}
+                        </span>
+                        <span>
+                          <strong>Status:</strong>{" "}
+                          {page.jobs.every((job) => job.outcome) ? (
+                            <span style={{ color: "#28a745" }}>Complete</span>
+                          ) : (
+                            <span style={{ color: "#ffc107" }}>Processing</span>
+                          )}
+                        </span>
+                      </div>
                     </div>
-                  </li>
-                )}
-              </For>
-            </ul>
-          </section>
-        </Show>
+                  )}
+                </For>
+              </div>
+            </div>
+          </Show>
 
-        <Show when={summarizeResult()?.summary}>
-          <section>
-            <p>
-              <strong>Summary:</strong>
-            </p>
-            <p>{summarizeResult()!.summary}</p>
-          </section>
-        </Show>
+          {/* Display Source Jobs */}
+          <Show when={source()!.jobs && source()!.jobs.length > 0}>
+            <div
+              style={{
+                padding: "20px",
+                border: "1px solid #ddd",
+                "border-radius": "8px",
+                "box-shadow": "0 2px 4px rgba(0,0,0,0.1)",
+              }}
+            >
+              <h3 style={{ "margin-top": "0", color: "#4443cd" }}>
+                Source Jobs ({source()!.jobs.length})
+              </h3>
 
-        <Show when={summarizeResult()?.data_origin}>
-          <section>
-            <p>
-              <strong>Data Origin:</strong>
-            </p>
-            <p>{summarizeResult()!.data_origin}</p>
-          </section>
-        </Show>
-
-        <Show when={summarizeResult()?.source_format}>
-          <section>
-            <p>
-              <strong>Source Format:</strong>
-            </p>
-            <p>{summarizeResult()!.source_format}</p>
-          </section>
-        </Show>
-
-        <Show when={summarizeResult()?.focus_area}>
-          <section>
-            <p>
-              <strong>Focus Area:</strong>
-            </p>
-            <p>{summarizeResult()!.focus_area}</p>
-          </section>
-        </Show>
-
-        <Show
-          when={
-            summarizeResult()?.input_tokens || summarizeResult()?.output_tokens
-          }
-        >
-          <section>
-            <p>
-              <strong>Token Usage:</strong>
-            </p>
-            <p>
-              Input: {summarizeResult()?.input_tokens || 0}, Output:{" "}
-              {summarizeResult()?.output_tokens || 0}
-            </p>
-          </section>
-        </Show>
-
-        <Show
-          when={currentSource()?.pages && currentSource()!.pages.length > 0}
-        >
-          <section>
-            <p>
-              <strong>Pages:</strong>
-            </p>
-            <ul>
-              <For each={currentSource()!.pages}>
-                {(page) => <PageItem page={page} />}
-              </For>
-            </ul>
-          </section>
-        </Show>
-      </section>
+              <div
+                style={{
+                  display: "flex",
+                  "flex-direction": "column",
+                  gap: "8px",
+                }}
+              >
+                <For each={source()!.jobs}>
+                  {(job) => (
+                    <div
+                      style={{
+                        padding: "8px 12px",
+                        "border-radius": "4px",
+                        "font-size": "0.9em",
+                      }}
+                    >
+                      <span
+                        style={{ "font-family": "monospace", color: "#666" }}
+                      >
+                        {job.job_id}
+                      </span>
+                      <span style={{ "margin-left": "12px" }}>
+                        {job.outcome ? (
+                          <span style={{ color: "#28a745" }}>✓ Complete</span>
+                        ) : (
+                          <span style={{ color: "#ffc107" }}>
+                            ⏳ Processing
+                          </span>
+                        )}
+                      </span>
+                      <span style={{ "margin-left": "12px", color: "#666" }}>
+                        {new Date(job.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </div>
+          </Show>
+        </section>
+      </Show>
     </Suspense>
   );
 }

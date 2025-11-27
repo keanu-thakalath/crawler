@@ -62,6 +62,12 @@ async def get_discovered_sources_endpoint(uow: UnitOfWork) -> List[Source]:
     return await services.get_discovered_sources(uow)
 
 
+@get("/sources/in_progress")
+async def get_in_progress_sources_endpoint(uow: UnitOfWork) -> List[Source]:
+    """Get sources with jobs but no CrawlJobResult (crawl in progress). No pages included."""
+    return await services.get_in_progress_sources(uow)
+
+
 @get("/source")
 async def get_source_endpoint(source_url: str, uow: UnitOfWork) -> Source:
     """Get source data without page jobs."""
@@ -146,6 +152,7 @@ app = Litestar(
         get_failed_jobs_endpoint,
         get_crawled_sources_endpoint,
         get_discovered_sources_endpoint,
+        get_in_progress_sources_endpoint,
         get_source_endpoint,
         get_page_endpoint,
         approve_job_endpoint,
