@@ -41,7 +41,7 @@ export default function PageDetail() {
       (job) =>
         job.outcome &&
         "summary" in job.outcome &&
-        "relevant_internal_links" in job.outcome
+        "relevancy" in job.outcome
     );
 
     if (extractJobs.length === 0) return null;
@@ -218,152 +218,42 @@ export default function PageDetail() {
             </div>
           </Show>
 
-          {/* Display Links */}
-          <Show
-            when={
-              extractResult() &&
-              ((extractResult()!.relevant_internal_links &&
-                extractResult()!.relevant_internal_links.length > 0) ||
-                (extractResult()!.relevant_external_links &&
-                  extractResult()!.relevant_external_links.length > 0) ||
-                (extractResult()!.relevant_file_links &&
-                  extractResult()!.relevant_file_links.length > 0))
-            }
-          >
+          {/* Display Next Internal Link */}
+          <Show when={extractResult() && extractResult()!.next_internal_link}>
             <div
               style={{
                 "margin-bottom": "24px",
                 padding: "20px",
-                border: "1px solid #ddd",
+                border: "1px solid #28a745",
                 "border-radius": "8px",
                 "box-shadow": "0 2px 4px rgba(0,0,0,0.1)",
+                "background-color": "#f8fff9",
               }}
             >
-              <h3 style={{ "margin-top": "0", color: "#4443cd" }}>
-                Extracted Links
+              <h3 style={{ "margin-top": "0", color: "#28a745" }}>
+                Next Recommended Link
               </h3>
-
-              <Show
-                when={
-                  extractResult()!.relevant_internal_links &&
-                  extractResult()!.relevant_internal_links.length > 0
-                }
+              <p style={{ color: "#666", "margin-bottom": "12px", "font-size": "0.9em" }}>
+                The AI selected this as the most relevant internal link to crawl next:
+              </p>
+              <a
+                href={extractResult()!.next_internal_link!}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: "#28a745",
+                  "text-decoration": "none",
+                  padding: "8px 12px",
+                  border: "1px solid #28a745",
+                  "border-radius": "4px",
+                  "word-break": "break-all",
+                  "font-size": "0.9em",
+                  display: "inline-block",
+                  "background-color": "#fff",
+                }}
               >
-                <div style={{ "margin-bottom": "20px" }}>
-                  <h4>
-                    Internal Links (
-                    {extractResult()!.relevant_internal_links.length}):
-                  </h4>
-                  <div
-                    style={{
-                      display: "flex",
-                      "flex-direction": "column",
-                      gap: "8px",
-                    }}
-                  >
-                    <For each={extractResult()!.relevant_internal_links}>
-                      {(link) => (
-                        <a
-                          href={link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            color: "#4443cd",
-                            "text-decoration": "none",
-                            padding: "4px",
-                            "border-radius": "4px",
-                            "word-break": "break-all",
-                            "font-size": "0.9em",
-                          }}
-                        >
-                          {link}
-                        </a>
-                      )}
-                    </For>
-                  </div>
-                </div>
-              </Show>
-
-              <Show
-                when={
-                  extractResult()!.relevant_external_links &&
-                  extractResult()!.relevant_external_links.length > 0
-                }
-              >
-                <div style={{ "margin-bottom": "20px" }}>
-                  <h4>
-                    External Links (
-                    {extractResult()!.relevant_external_links.length}):
-                  </h4>
-                  <div
-                    style={{
-                      display: "flex",
-                      "flex-direction": "column",
-                      gap: "8px",
-                    }}
-                  >
-                    <For each={extractResult()!.relevant_external_links}>
-                      {(link) => (
-                        <a
-                          href={link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            color: "#4443cd",
-                            "text-decoration": "none",
-                            padding: "4px",
-                            "border-radius": "4px",
-                            "word-break": "break-all",
-                            "font-size": "0.9em",
-                          }}
-                        >
-                          {link}
-                        </a>
-                      )}
-                    </For>
-                  </div>
-                </div>
-              </Show>
-
-              <Show
-                when={
-                  extractResult()!.relevant_file_links &&
-                  extractResult()!.relevant_file_links.length > 0
-                }
-              >
-                <div>
-                  <h4>
-                    File Links ({extractResult()!.relevant_file_links.length}):
-                  </h4>
-                  <div
-                    style={{
-                      display: "flex",
-                      "flex-direction": "column",
-                      gap: "8px",
-                    }}
-                  >
-                    <For each={extractResult()!.relevant_file_links}>
-                      {(link) => (
-                        <a
-                          href={link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            color: "#4443cd",
-                            "text-decoration": "none",
-                            padding: "8px",
-                            "border-radius": "4px",
-                            "word-break": "break-all",
-                            "font-size": "0.9em",
-                          }}
-                        >
-                          📁 {link}
-                        </a>
-                      )}
-                    </For>
-                  </div>
-                </div>
-              </Show>
+                🔗 {extractResult()!.next_internal_link!}
+              </a>
             </div>
           </Show>
 

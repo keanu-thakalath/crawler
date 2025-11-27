@@ -64,9 +64,7 @@ extract_job_results = Table(
     Column("key_figures", Text, nullable=False),
     Column("trustworthiness", Text, nullable=False),
     Column("relevancy", Enum(Relevancy), nullable=False),
-    Column("relevant_internal_links", JSONList, nullable=False),
-    Column("relevant_external_links", JSONList, nullable=False),
-    Column("relevant_file_links", JSONList, nullable=False),
+    Column("next_internal_link", String(2048), nullable=True),
     Column("input_tokens", Integer, nullable=False),
     Column("output_tokens", Integer, nullable=False),
     Column("prompt", Text, nullable=False),
@@ -92,10 +90,10 @@ summarize_job_results = Table(
     Column("source_format", Enum(SourceFormat), nullable=False),
     Column("focus_area", Enum(FocusArea), nullable=False),
     Column("dataset_presence", Enum(DatasetPresence), nullable=False),
+    Column("relevant_external_links", JSONList, nullable=False),
     Column("input_tokens", Integer, nullable=False),
     Column("output_tokens", Integer, nullable=False),
-    Column("prompt", Text, nullable=False, default=
-    ''),
+    Column("prompt", Text, nullable=False, default=''),
     Column("model", String(255), nullable=False),
     Column(
         "review_status",

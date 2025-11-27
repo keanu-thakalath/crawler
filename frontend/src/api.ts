@@ -72,9 +72,7 @@ export interface ExtractJobResult {
   key_figures: string;
   trustworthiness: string;
   relevancy: Relevancy;
-  relevant_internal_links: string[];
-  relevant_external_links: string[];
-  relevant_file_links: string[];
+  next_internal_link: string | null;
   input_tokens: number;
   output_tokens: number;
   prompt: string;
@@ -92,6 +90,7 @@ export interface SummarizeJobResult {
   source_format: SourceFormat;
   focus_area: FocusArea;
   dataset_presence: DatasetPresence;
+  relevant_external_links: string[];
   input_tokens: number;
   output_tokens: number;
   prompt: string;

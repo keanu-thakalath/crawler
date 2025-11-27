@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Self
+from typing import List, Optional, Self
 from urllib.parse import urljoin
 
 from .exceptions import InvalidUrlError
@@ -22,9 +22,17 @@ class NormalizedUrl(str):
             raise InvalidUrlError(url, "Invalid URL format")
 
         return super().__new__(cls, normalized_url)
+    
+    @classmethod
+    def try_new(cls, url: str):
+        try:
+            return cls(url)
+        except InvalidUrlError:
+            return None
+
 
     @classmethod
-    def from_path(cls, path: str, base_url: Self):
+    def from_path(cls, path: str, base_url: Self) -> Self:
         return cls(urljoin(base_url, path))
     
     @classmethod

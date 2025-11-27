@@ -37,7 +37,12 @@ async def auto_summarize_approved_source(source_url: str, uow: UnitOfWork) -> Su
         for job in page.jobs:
             if (job.outcome and isinstance(job.outcome, ExtractJobResult) and job.outcome.review_status == ReviewStatus.APPROVED):
                 page_summaries.append(
-                    f"Markdown for {page.url}:\n\n{job.outcome.summary}"
+                    f"Summary for {page.url}:\n\n"
+                    f"Summary:\n{job.outcome.summary}\n\n"
+                    f"Key Facts:\n{job.outcome.key_facts}\n\n"
+                    f"Key Quotes:\n{job.outcome.key_quotes}\n\n"
+                    f"Key Figures:\n{job.outcome.key_figures}\n\n"
+                    f"Trustworthiness:\n{job.outcome.trustworthiness}"
                 )
                 break  # Only take the first approved extract job per page
     
@@ -46,6 +51,17 @@ async def auto_summarize_approved_source(source_url: str, uow: UnitOfWork) -> Su
         # Trigger source summarization without custom prompt
         async for summary_job in source.summarize_source(uow.source_analyzer, all_page_summaries, None):
             await uow.commit()
+        
+        # Process external links from completed summarize job
+        if isinstance(summary_job.outcome, SummarizeJobResult):
+            for external_link in summary_job.outcome.relevant_external_links:
+                try:
+                    await add_source(external_link, uow)
+                except SourceAlreadyExistsError:
+                    pass
+                except InvalidUrlError:
+                    pass
+        
         return summary_job
     else:
         raise ValueError(f"No approved extract jobs found for source {source_url}")
@@ -82,24 +98,18 @@ async def extract_page(
     uow: UnitOfWork, 
     custom_prompt: str | None = None,
     scraped_internal_links: List[NormalizedUrl] = None,
-    scraped_external_links: List[NormalizedUrl] = None,
-    scraped_file_links: List[NormalizedUrl] = None,
 ) -> ExtractJob:
     page = await uow.pages.get(page_url)
     if not page:
         raise PageNotFoundError(page_url)
 
-    # Use empty lists if no scraped links provided (for manual extraction)
-    internal_links = scraped_internal_links or []
-    external_links = scraped_external_links or []
-    file_links = scraped_file_links or []
+    # For manual extraction, use scraped internal links as candidates (no crawl context)
+    candidate_internal_links = scraped_internal_links or []
 
     async for job in page.extract_page(
         uow.page_summarizer, 
         markdown_content, 
-        internal_links,
-        external_links, 
-        file_links,
+        candidate_internal_links,
         custom_prompt
     ):
         await uow.commit()
@@ -366,16 +376,6 @@ async def crawl_source(source_url: str, max_pages: int, uow: UnitOfWork, extract
         extract_prompt,
     ):
         await uow.commit()
-
-        # External links are now extracted and filtered by relevance during extraction
-        if isinstance(job.outcome, ExtractJobResult):
-            for external_link in job.outcome.relevant_external_links:
-                try:
-                    await add_source(external_link, uow)
-                except SourceAlreadyExistsError:
-                    pass
-                except InvalidUrlError:
-                    pass
 
     return job
 

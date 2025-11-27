@@ -194,6 +194,62 @@ export default function SourceDetail() {
                 </div>
               </div>
 
+              {/* Display Relevant External Links */}
+              <Show
+                when={
+                  summarizeResult() &&
+                  summarizeResult()!.relevant_external_links &&
+                  summarizeResult()!.relevant_external_links.length > 0
+                }
+              >
+                <div
+                  style={{
+                    "margin-top": "20px",
+                    padding: "16px",
+                    border: "1px solid #ddd",
+                    "border-radius": "8px",
+                    "background-color": "#f8f9fa",
+                  }}
+                >
+                  <h4 style={{ "margin-top": "0", color: "#4443cd" }}>
+                    Relevant External Links ({summarizeResult()!.relevant_external_links.length})
+                  </h4>
+                  <p style={{ color: "#666", "margin-bottom": "12px", "font-size": "0.9em" }}>
+                    AI-filtered external links identified as relevant for further research:
+                  </p>
+                  <div
+                    style={{
+                      display: "flex",
+                      "flex-direction": "column",
+                      gap: "8px",
+                    }}
+                  >
+                    <For each={summarizeResult()!.relevant_external_links}>
+                      {(link) => (
+                        <a
+                          href={link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: "#4443cd",
+                            "text-decoration": "none",
+                            padding: "8px 12px",
+                            border: "1px solid #dee2e6",
+                            "border-radius": "4px",
+                            "word-break": "break-all",
+                            "font-size": "0.9em",
+                            "background-color": "#fff",
+                            display: "block",
+                          }}
+                        >
+                          🔗 {link}
+                        </a>
+                      )}
+                    </For>
+                  </div>
+                </div>
+              </Show>
+
               <div
                 style={{
                   "margin-top": "16px",

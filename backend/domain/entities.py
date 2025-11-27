@@ -81,9 +81,7 @@ class Page:
         self, 
         page_summarizer: PageSummarizer, 
         markdown_content: str, 
-        scraped_internal_links: List[NormalizedUrl],
-        scraped_external_links: List[NormalizedUrl],
-        scraped_file_links: List[NormalizedUrl],
+        candidate_internal_links: List[NormalizedUrl],
         custom_prompt: str | None = None
     ) -> AsyncGenerator[ExtractJob, None]:
         job = ExtractJob()
@@ -98,9 +96,7 @@ class Page:
             ) = await page_summarizer.summarize_page(
                 self.url, 
                 markdown_content, 
-                scraped_internal_links,
-                scraped_external_links,
-                scraped_file_links,
+                candidate_internal_links,
                 custom_prompt
             )
 
@@ -158,11 +154,14 @@ class Source:
 
         try:
             url_queue: List[NormalizedUrl] = [self.url]
+            candidate_internal_links: List[NormalizedUrl] = []
+            processed_pages: set[NormalizedUrl] = set()
             pages_crawled = 0
             total_pages_found = 1
 
             while url_queue and pages_crawled < max_pages:
                 current_url = url_queue.pop(0)
+                processed_pages.add(current_url)
 
                 current_page = None
                 for page in self.pages:
@@ -178,21 +177,31 @@ class Source:
                     yield scrape_job
 
                 if isinstance(scrape_job.outcome, ScrapeJobResult):
+                    # Add newly discovered internal links to candidates
+                    for internal_link in scrape_job.outcome.internal_links:
+                        if internal_link not in candidate_internal_links:
+                            candidate_internal_links.append(internal_link)
+                            total_pages_found += 1
+
+                    # Filter candidate links to exclude processed pages
+                    filtered_candidate_links = [
+                        link for link in candidate_internal_links 
+                        if link not in processed_pages
+                    ]
+
                     async for extract_job in current_page.extract_page(
                         page_summarizer, 
                         scrape_job.outcome.markdown,
-                        scrape_job.outcome.internal_links,
-                        scrape_job.outcome.external_links,
-                        scrape_job.outcome.file_links,
+                        filtered_candidate_links,
                         extract_prompt
                     ):
                         yield extract_job
 
                     if isinstance(extract_job.outcome, ExtractJobResult):
-                        for internal_link in extract_job.outcome.relevant_internal_links:
-                            if internal_link not in url_queue:
-                                url_queue.append(internal_link)
-                                total_pages_found += 1
+                        # Add next internal link selected by LLM to queue
+                        if extract_job.outcome.next_internal_link:
+                            if extract_job.outcome.next_internal_link not in processed_pages:
+                                url_queue.append(extract_job.outcome.next_internal_link)
 
                 pages_crawled += 1
 
@@ -222,10 +231,25 @@ class Source:
         yield job
 
         try:
+            # Collect all external links from pages' scrape jobs
+            all_external_links: List[NormalizedUrl] = []
+            for page in self.pages:
+                for page_job in page.jobs:
+                    if isinstance(page_job.outcome, ScrapeJobResult):
+                        all_external_links.extend(page_job.outcome.external_links)
+            
+            # Remove duplicates while preserving order
+            unique_external_links = []
+            seen = set()
+            for link in all_external_links:
+                if link not in seen:
+                    unique_external_links.append(link)
+                    seen.add(link)
+
             (
                 job_result_data,
                 llm_response_metadata,
-            ) = await source_analyzer.analyze_content(all_page_summaries, str(self.url), custom_prompt)
+            ) = await source_analyzer.analyze_content(all_page_summaries, str(self.url), unique_external_links, custom_prompt)
 
             job_result = SummarizeJobResult(
                 **job_result_data.__dict__, **llm_response_metadata.__dict__

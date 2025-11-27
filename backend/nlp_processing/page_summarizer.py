@@ -16,9 +16,7 @@ class SummaryResult:
     key_figures: str
     trustworthiness: str
     relevancy: Relevancy
-    relevant_internal_links: List[str]
-    relevant_external_links: List[str]
-    relevant_file_links: List[str]
+    next_internal_link: str | None
 
 
 class PageSummarizer(abc.ABC):
@@ -27,9 +25,7 @@ class PageSummarizer(abc.ABC):
         self, 
         url: NormalizedUrl, 
         markdown: str, 
-        scraped_internal_links: List[NormalizedUrl],
-        scraped_external_links: List[NormalizedUrl], 
-        scraped_file_links: List[NormalizedUrl],
+        candidate_internal_links: List[NormalizedUrl],
         custom_prompt: str | None = None
     ) -> tuple[ExtractJobResultData, LLMResponseMetadata]:
         raise NotImplementedError
@@ -43,9 +39,7 @@ class LiteLLMPageSummarizer(PageSummarizer):
         self, 
         url: NormalizedUrl, 
         markdown: str, 
-        scraped_internal_links: List[NormalizedUrl],
-        scraped_external_links: List[NormalizedUrl], 
-        scraped_file_links: List[NormalizedUrl],
+        candidate_internal_links: List[NormalizedUrl],
         custom_prompt: str | None = None
     ) -> tuple[ExtractJobResultData, LLMResponseMetadata]:
         base_prompt = """Analyze the following markdown content for a research campaign investigating the effects of Concentrated Animal Feeding Operations (CAFOs) in Washington state. We're conducting a literature review on environmental and community impacts of CAFOs.
@@ -77,11 +71,12 @@ Please extract and structure the following information:
    - "Not Relevant": No meaningful connection to CAFO research topics
    Just output one of the categories, no explanation is necessary.
 
-7. Relevant Internal Links: From the provided list of internal links (including PDF links to the same domain), select and rank the most relevant ones for CAFO research. Consider link text, URL structure, and context from the page content. Return up to 10 most relevant internal links, ordered by relevance (most relevant first). Return empty list if none are relevant.
-
-8. Relevant External Links: From the provided list of external links (including PDF links to external domains), select and rank the most relevant ones for CAFO research. Look for links to research institutions, government agencies, environmental organizations, agricultural bodies, or academic sources. Return up to 10 most relevant external links, ordered by relevance (most relevant first). Return empty list if none are relevant.
-
-9. Relevant File Links: From the provided list of file links (non-PDF documents like .doc, .xls, .csv, .zip data files), select and rank the most relevant ones for CAFO research. Prioritize data files, spreadsheets, and downloadable documents. Return up to 10 most relevant file links, ordered by relevance (most relevant first). Return empty list if none are relevant.
+7. Next Internal Link: From the provided list of candidate internal links (links discovered during crawling but not yet processed), select the SINGLE most relevant and promising link for CAFO research to crawl next. Consider:
+   - Link text and URL structure that suggests CAFO-relevant content
+   - Context from the current page that indicates the link's potential value
+   - Likelihood of containing new information about CAFOs, environmental impacts, or regulatory content
+   - Preference for pages that might lead to additional valuable links
+   Return the single most promising link URL, or null if none of the candidates appear relevant to CAFO research.
 
 Guidelines:
 - Focus on content relevant to industrial agriculture, environmental impacts, and community effects
@@ -92,22 +87,14 @@ Guidelines:
 - Be objective in trustworthiness assessment - note both strengths and limitations
 - Base relevancy classification on content substance, not just keywords"""
 
-        # Build links sections
-        internal_links_text = "\n".join([f"- {link}" for link in scraped_internal_links]) if scraped_internal_links else "No internal links found"
-        external_links_text = "\n".join([f"- {link}" for link in scraped_external_links]) if scraped_external_links else "No external links found"
-        file_links_text = "\n".join([f"- {link}" for link in scraped_file_links]) if scraped_file_links else "No file links found"
+        # Build candidate links section
+        candidate_links_text = "\n".join([f"- {link}" for link in candidate_internal_links]) if candidate_internal_links else "No candidate internal links available"
         
         prompt_to_use = custom_prompt if custom_prompt else base_prompt
         full_prompt = f"""{prompt_to_use}
 
-Internal links found on the page:
-{internal_links_text}
-
-External links found on the page:
-{external_links_text}
-
-File links found on the page:
-{file_links_text}
+Candidate internal links available for next crawl (unprocessed links discovered during crawling):
+{candidate_links_text}
 
 Markdown content for URL {url}:
 {markdown}"""
@@ -117,6 +104,10 @@ Markdown content for URL {url}:
         )
         
         # Create ExtractJobResultData with converted URLs
+        next_link = None
+        if raw_result.next_internal_link:
+            next_link = NormalizedUrl.try_new(raw_result.next_internal_link)
+        
         extract_result = ExtractJobResultData(
             summary=raw_result.summary,
             key_facts=raw_result.key_facts,
@@ -124,9 +115,7 @@ Markdown content for URL {url}:
             key_figures=raw_result.key_figures,
             trustworthiness=raw_result.trustworthiness,
             relevancy=raw_result.relevancy,
-            relevant_internal_links=NormalizedUrl.from_string_list(raw_result.relevant_internal_links),
-            relevant_external_links=NormalizedUrl.from_string_list(raw_result.relevant_external_links),
-            relevant_file_links=NormalizedUrl.from_string_list(raw_result.relevant_file_links)
+            next_internal_link=next_link
         )
         
         # Override the stored prompt to exclude markdown content

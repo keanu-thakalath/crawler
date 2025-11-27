@@ -27,7 +27,7 @@ export default function Approvals() {
           if (
             job.outcome &&
             "summary" in job.outcome &&
-            "relevant_internal_links" in job.outcome &&
+            "relevancy" in job.outcome &&
             job.outcome.review_status === api.ReviewStatus.UNREVIEWED
           ) {
             return {

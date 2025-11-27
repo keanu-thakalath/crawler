@@ -88,9 +88,7 @@ class ExtractJobResultData:
     key_figures: str
     trustworthiness: str
     relevancy: Relevancy
-    relevant_internal_links: List[NormalizedUrl] = field(default_factory=list)
-    relevant_external_links: List[NormalizedUrl] = field(default_factory=list)
-    relevant_file_links: List[NormalizedUrl] = field(default_factory=list)
+    next_internal_link: NormalizedUrl | None = None
 
 
 @dataclass(kw_only=True)
@@ -108,6 +106,7 @@ class SummarizeJobResultData:
     source_format: SourceFormat
     focus_area: FocusArea
     dataset_presence: DatasetPresence
+    relevant_external_links: List[NormalizedUrl] = field(default_factory=list)
 
 
 @dataclass(kw_only=True)
