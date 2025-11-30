@@ -12,7 +12,7 @@ const approveJobAction = action(async (formData: FormData) => {
   // First update the summary, then approve the job
   await api.editJobSummary(jobId, summary);
   await api.approveJob(jobId);
-  await revalidate("sources");
+  await revalidate("unreviewedJobs");
   return {};
 }, "approveJob");
 

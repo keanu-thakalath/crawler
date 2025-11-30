@@ -17,121 +17,88 @@ from litestar.status_codes import (
 from .auth import AuthenticationMiddleware, Key, exchange_key, InvalidKeyError
 from .dependencies import provide_uow
 from .dto import (
-    AddPageToSourceRequest,
     CrawlRequest,
     EditJobSummaryRequest,
-    ExtractRequest,
-    ScrapeRequest,
-    SummarizeRequest,
     TokenResponse,
 )
 from .lifespan import db_connection
 from database.models import metadata
-from domain.entities import ExtractJob, Job, Page, ScrapeJob, Source, SummarizeJob
+from domain.entities import Job, Page, Source
 from domain.exceptions import InvalidUrlError
 from service import services
 from service.exceptions import (
     InvalidJobTypeError,
     InvalidSummaryValueError,
     JobNotFoundError,
-    PageAlreadyExistsError,
     PageNotFoundError,
-    SourceAlreadyExistsError,
     SourceNotFoundError,
 )
 from service.unit_of_work import UnitOfWork
-from tasks.crawl import crawl_url
 
 
-@post("/sources")
-async def add_source_endpoint(source_url: str, uow: UnitOfWork) -> Source:
-    try:
-        return await services.add_source(source_url, uow)
-    except InvalidUrlError as e:
-        raise ClientException(status_code=HTTP_400_BAD_REQUEST, detail=e.reason) from e
-    except SourceAlreadyExistsError as e:
-        raise ClientException(status_code=HTTP_409_CONFLICT, detail=str(e)) from e
+@get("/sources/unreviewed-jobs")
+async def get_unreviewed_jobs_endpoint(uow: UnitOfWork) -> List[Source]:
+    """Get sources with only unreviewed jobs, filtering out pages/sources with no unreviewed jobs."""
+    sources = await services.get_unreviewed_jobs(uow)
+    return services.filter_markdown_from_scrape_results(sources)
 
 
-@post("/scrape")
-async def scrape_page_endpoint(data: ScrapeRequest, uow: UnitOfWork) -> ScrapeJob:
-    try:
-        return await services.scrape_page(data.page_url, uow)
-    except PageNotFoundError as e:
-        raise ClientException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
+@get("/sources/failed-jobs") 
+async def get_failed_jobs_endpoint(uow: UnitOfWork) -> List[Source]:
+    """Get sources with only failed jobs, filtering out pages/sources with no failed jobs."""
+    sources = await services.get_failed_jobs(uow)
+    return services.filter_markdown_from_scrape_results(sources)
 
 
-@post("/extract")
-async def extract_page_endpoint(data: ExtractRequest, uow: UnitOfWork) -> ExtractJob:
-    try:
-        return await services.extract_page(data.page_url, data.markdown_content, uow, data.prompt)
-    except PageNotFoundError as e:
-        raise ClientException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
+@get("/sources/crawled")
+async def get_crawled_sources_endpoint(uow: UnitOfWork) -> List[Source]:
+    """Get sources with completed and reviewed summarize jobs. No pages included."""
+    return await services.get_crawled_sources(uow)
 
 
-@get("/sources")
-async def list_sources_endpoint(uow: UnitOfWork) -> List[Source]:
-    return await services.list_sources(uow)
+@get("/sources/discovered") 
+async def get_discovered_sources_endpoint(uow: UnitOfWork) -> List[Source]:
+    """Get sources with no existing crawl job. No pages included."""
+    return await services.get_discovered_sources(uow)
+
+
+@get("/sources/in_progress")
+async def get_in_progress_sources_endpoint(uow: UnitOfWork) -> List[Source]:
+    """Get sources with jobs but no CrawlJobResult (crawl in progress). No pages included."""
+    return await services.get_in_progress_sources(uow)
 
 
 @get("/source")
 async def get_source_endpoint(source_url: str, uow: UnitOfWork) -> Source:
+    """Get source data without page jobs."""
     try:
-        return await services.get_source(source_url, uow)
+        return await services.get_source_only(source_url, uow)
     except SourceNotFoundError as e:
         raise ClientException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @get("/page")
 async def get_page_endpoint(page_url: str, uow: UnitOfWork) -> Page:
+    """Get complete page data with all jobs (includes markdown in ScrapeJobResult)."""
     try:
         return await services.get_page(page_url, uow)
     except PageNotFoundError as e:
         raise ClientException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
-@post("/sources/pages")
-async def add_page_to_source_endpoint(
-    data: AddPageToSourceRequest, uow: UnitOfWork
-) -> Page:
+@post("/crawl")
+async def crawl_url_endpoint(data: CrawlRequest, uow: UnitOfWork) -> dict:
+    """Add URL as source if it doesn't exist, then start crawl job."""
     try:
-        return await services.add_page_to_source(data.source_url, data.page_url, uow)
-    except SourceNotFoundError as e:
-        raise ClientException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except PageAlreadyExistsError as e:
-        raise ClientException(status_code=HTTP_409_CONFLICT, detail=str(e)) from e
+        source_url = await services.crawl_url_with_source_check(data.url, data.max_pages, uow, data.extract_prompt)
+        return {"message": "Crawl job started", "source_url": source_url}
     except InvalidUrlError as e:
         raise ClientException(status_code=HTTP_400_BAD_REQUEST, detail=e.reason) from e
 
 
-@post("/summarize")
-async def summarize_source_endpoint(
-    data: SummarizeRequest, uow: UnitOfWork
-) -> SummarizeJob:
-    try:
-        return await services.summarize_source(
-            data.source_url, data.all_page_summaries, uow, data.prompt
-        )
-    except SourceNotFoundError as e:
-        raise ClientException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
-
-
-@post("/crawl")
-async def crawl_url_endpoint(data: CrawlRequest) -> None:
-    """Start a crawl task for the given URL"""
-    crawl_url.delay(data.url, data.max_pages, data.extract_prompt, data.summarize_prompt)
-
-
-@delete("/sources")
-async def delete_source_endpoint(source_url: str, uow: UnitOfWork) -> None:
-    try:
-        await services.delete_source(source_url, uow)
-    except SourceNotFoundError as e:
-        raise ClientException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
-
-
 @post("/exchange_key")
 async def exchange_key_endpoint(key: Key) -> TokenResponse:
+    """Exchange API key for authentication token."""
     try:
         return TokenResponse(token=exchange_key(key))
     except InvalidKeyError:
@@ -140,6 +107,7 @@ async def exchange_key_endpoint(key: Key) -> TokenResponse:
 
 @patch("/jobs/{job_id:str}/approve")
 async def approve_job_endpoint(job_id: str, uow: UnitOfWork) -> Job:
+    """Approve a job by setting its review status to APPROVED."""
     try:
         return await services.approve_job_review_status(job_id, uow)
     except JobNotFoundError as e:
@@ -152,6 +120,7 @@ async def approve_job_endpoint(job_id: str, uow: UnitOfWork) -> Job:
 async def edit_job_summary_endpoint(
     job_id: str, data: EditJobSummaryRequest, uow: UnitOfWork
 ) -> Job:
+    """Edit the summary field of an extract or summarize job."""
     try:
         return await services.edit_job_outcome_summary(job_id, data.summary, uow)
     except JobNotFoundError as e:
@@ -164,6 +133,7 @@ async def edit_job_summary_endpoint(
 
 @delete("/reset")
 async def reset_database_endpoint(state: State) -> None:
+    """Reset the database by dropping and recreating all tables."""
     engine = state.engine
     async with engine.begin() as conn:
         await conn.run_sync(metadata.drop_all)
@@ -176,20 +146,18 @@ auth_mw = DefineMiddleware(AuthenticationMiddleware, exclude=["schema", "exchang
 
 app = Litestar(
     route_handlers=[
-        add_source_endpoint,
-        list_sources_endpoint,
-        delete_source_endpoint,
-        crawl_url_endpoint,
         exchange_key_endpoint,
+        crawl_url_endpoint,
+        get_unreviewed_jobs_endpoint,
+        get_failed_jobs_endpoint,
+        get_crawled_sources_endpoint,
+        get_discovered_sources_endpoint,
+        get_in_progress_sources_endpoint,
+        get_source_endpoint,
+        get_page_endpoint,
         approve_job_endpoint,
         edit_job_summary_endpoint,
         reset_database_endpoint,
-        scrape_page_endpoint,
-        extract_page_endpoint,
-        summarize_source_endpoint,
-        get_source_endpoint,
-        get_page_endpoint,
-        add_page_to_source_endpoint,
     ],
     openapi_config=OpenAPIConfig(
         title="Crawler Demo",

@@ -15,6 +15,19 @@ function Layout(props: any) {
           <li>
             <A href="/approvals">Approvals</A>
           </li>
+
+          <li>
+            <A href="/discovered">Discovered</A>
+          </li>
+          <li>
+            <A href="/crawled">Crawled</A>
+          </li>
+          <li>
+            <A href="/in_progress">In Progress</A>
+          </li>
+          <li>
+            <A href="/failed">Failed</A>
+          </li>
         </ul>
       </nav>
       <Suspense fallback={<section aria-busy="true">Loading...</section>}>
