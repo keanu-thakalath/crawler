@@ -217,7 +217,7 @@ class Source:
             yield crawl_job
 
         except Exception as e:
-            job_error = JobError(message=str(e))
+            job_error = JobError(message=f"{traceback.format_exc()}\n{str(e)}")
             crawl_job.outcome = job_error
 
             yield crawl_job
@@ -259,7 +259,7 @@ class Source:
             yield job
 
         except Exception as e:
-            job_error = JobError(message=str(e))
+            job_error = JobError(message=f"{traceback.format_exc()}\n{str(e)}")
             job.outcome = job_error
 
             yield job
