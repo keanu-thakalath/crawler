@@ -24,48 +24,6 @@ from .exceptions import (
 from .unit_of_work import UnitOfWork
 
 
-async def auto_summarize_approved_source(source_url: str, uow: UnitOfWork) -> SummarizeJob:
-    """Auto-trigger source summarization when all extract jobs are approved."""
-    source = await uow.sources.get(source_url)
-    if not source:
-        raise SourceNotFoundError(source_url)
-    
-    # Build page summaries from approved extract jobs
-    page_summaries = []
-    
-    for page in source.pages:
-        for job in page.jobs:
-            if (job.outcome and isinstance(job.outcome, ExtractJobResult) and job.outcome.review_status == ReviewStatus.APPROVED):
-                page_summaries.append(
-                    f"Summary for {page.url}:\n\n"
-                    f"Summary:\n{job.outcome.summary}\n\n"
-                    f"Key Facts:\n{job.outcome.key_facts}\n\n"
-                    f"Key Quotes:\n{job.outcome.key_quotes}\n\n"
-                    f"Key Figures:\n{job.outcome.key_figures}\n\n"
-                    f"Trustworthiness:\n{job.outcome.trustworthiness}"
-                )
-                break  # Only take the first approved extract job per page
-    
-    if page_summaries:
-        all_page_summaries = "\n\n".join(page_summaries)
-        # Trigger source summarization without custom prompt
-        async for summary_job in source.summarize_source(uow.source_analyzer, all_page_summaries, None):
-            await uow.commit()
-        
-        # Process external links from completed summarize job
-        if isinstance(summary_job.outcome, SummarizeJobResult):
-            for external_link in summary_job.outcome.relevant_external_links:
-                try:
-                    await add_source(external_link, uow)
-                except SourceAlreadyExistsError:
-                    pass
-                except InvalidUrlError:
-                    pass
-        
-        return summary_job
-    else:
-        raise ValueError(f"No approved extract jobs found for source {source_url}")
-
 
 async def add_source(url: str, uow: UnitOfWork) -> Source:
     normalized_url = NormalizedUrl(url)
@@ -123,10 +81,11 @@ async def list_sources(uow: UnitOfWork) -> list[Source]:
 
 async def get_unreviewed_jobs(uow: UnitOfWork) -> List[Source]:
     """Get sources with pages containing only unreviewed extract/summarize jobs."""
-    all_sources = await uow.sources.list_all()
-    filtered_sources = []
+    sources = await uow.sources.get_sources_with_unreviewed_jobs()
     
-    for source in all_sources:
+    # Filter jobs to only include unreviewed ones to match original behavior
+    filtered_sources = []
+    for source in sources:
         # Filter source-level jobs to only unreviewed ones
         source_jobs = []
         for job in source.jobs:
@@ -158,10 +117,11 @@ async def get_unreviewed_jobs(uow: UnitOfWork) -> List[Source]:
 
 async def get_failed_jobs(uow: UnitOfWork) -> List[Source]:
     """Get sources with pages containing only failed jobs."""
-    all_sources = await uow.sources.list_all()
-    filtered_sources = []
+    sources = await uow.sources.get_sources_with_failed_jobs()
     
-    for source in all_sources:
+    # Filter jobs to only include failed ones to match original behavior
+    filtered_sources = []
+    for source in sources:
         # Filter source-level jobs to only failed ones
         source_jobs = []
         for job in source.jobs:
@@ -190,57 +150,18 @@ async def get_failed_jobs(uow: UnitOfWork) -> List[Source]:
 
 
 async def get_crawled_sources(uow: UnitOfWork) -> List[Source]:
-    """Get sources with completed and reviewed summarize jobs. No pages included."""
-    all_sources = await uow.sources.list_all()
-    crawled_sources = []
-    
-    for source in all_sources:
-        # Check if source has a completed summarize job
-        for job in source.jobs:
-            if isinstance(job.outcome, CrawlJobResult):
-                # Create new source without pages
-                crawled_source = Source(url=source.url, jobs=source.jobs, pages=[])
-                crawled_sources.append(crawled_source)
-                break  # Only need one approved summarize job
-    
-    return crawled_sources
+    """Get sources with completed crawl jobs. No pages included."""
+    return await uow.sources.get_crawled_sources()
 
 
 async def get_discovered_sources(uow: UnitOfWork) -> List[Source]:
     """Get sources with no crawl job (discovered via external links). No pages included."""
-    all_sources = await uow.sources.list_all()
-    discovered_sources = []
-    
-    for source in all_sources:
-        # Check if source has any crawl job
-        has_crawl_job = len(source.jobs) != 0
-        
-        if not has_crawl_job:
-            # Create new source without pages
-            discovered_source = Source(url=source.url, jobs=source.jobs, pages=[])
-            discovered_sources.append(discovered_source)
-    
-    return discovered_sources
+    return await uow.sources.get_discovered_sources()
 
 
 async def get_in_progress_sources(uow: UnitOfWork) -> List[Source]:
     """Get sources with jobs but no CrawlJobResult (crawl in progress). No pages included."""
-    all_sources = await uow.sources.list_all()
-    in_progress_sources = []
-    
-    for source in all_sources:
-        # Check if source has any job
-        has_job = len(source.jobs) > 0
-        
-        # Check if source has any CrawlJobResult (completed crawl)
-        has_crawl_result = any(isinstance(job.outcome, CrawlJobResult) for job in source.jobs)
-        
-        if has_job and not has_crawl_result:
-            # Create new source without pages
-            in_progress_source = Source(url=source.url, jobs=source.jobs, pages=[])
-            in_progress_sources.append(in_progress_source)
-    
-    return in_progress_sources
+    return await uow.sources.get_in_progress_sources()
 
 
 async def get_source_only(source_url: str, uow: UnitOfWork) -> Source:
@@ -363,7 +284,7 @@ async def summarize_source(
     return job
 
 
-async def crawl_source(source_url: str, max_pages: int, uow: UnitOfWork, extract_prompt: str | None = None) -> CrawlJob:
+async def crawl_source(source_url: str, max_pages: int, uow: UnitOfWork, extract_prompt: str | None = None, summarize_prompt: str | None = None) -> CrawlJob:
     source = await uow.sources.get(source_url)
     if not source:
         raise SourceNotFoundError(source_url)
@@ -373,9 +294,20 @@ async def crawl_source(source_url: str, max_pages: int, uow: UnitOfWork, extract
         uow.content_scraper,
         uow.manual_link_extractor,
         uow.page_summarizer,
+        uow.source_analyzer,
         extract_prompt,
+        summarize_prompt,
     ):
         await uow.commit()
+        # Process external links from completed summarize job
+        if isinstance(job.outcome, SummarizeJobResult):
+            for external_link in job.outcome.relevant_external_links:
+                try:
+                    await add_source(external_link, uow)
+                except SourceAlreadyExistsError:
+                    pass
+                except InvalidUrlError:
+                    pass
 
     return job
 
@@ -402,17 +334,6 @@ async def approve_job_review_status(job_id: str, uow: UnitOfWork) -> Job:
     # Update review status to approved
     job.outcome.review_status = ReviewStatus.APPROVED
     await uow.commit()
-    
-    # If this is an extract job, check if all extract jobs for the source are now approved
-    if isinstance(job.outcome, ExtractJobResult):
-        # Get the source URL from the page URL
-        page = await uow.pages.get(job.page_url)
-        if page:
-            source = await uow.sources.get(page.source_url)
-            if source and source.all_extract_jobs_approved():
-                # Auto-trigger source summarization as async task
-                from tasks.crawl import auto_summarize_source
-                auto_summarize_source.delay(str(source.url))
     
     return job
 

@@ -121,23 +121,6 @@ class Source:
     pages: List[Page] = field(default_factory=list)
     jobs: List[SourceJob] = field(default_factory=list)
 
-    def all_extract_jobs_approved(self) -> bool:
-        """Check if all extract jobs for this source have been approved."""
-        extract_jobs = []
-        
-        for page in self.pages:
-            for job in page.jobs:
-                print(job)
-                if job.outcome and isinstance(job.outcome, ExtractJobResult):
-                        extract_jobs.append(job)
-        
-        if not extract_jobs:
-            return False  # No extract jobs exist
-            
-        return all(
-            job.outcome.review_status == ReviewStatus.APPROVED 
-            for job in extract_jobs
-        )
 
     async def crawl_source(
         self,
@@ -145,8 +128,10 @@ class Source:
         content_scraper: ContentScraper,
         manual_link_extractor: ManualLinkExtractor,
         page_summarizer: PageSummarizer,
+        source_analyzer: SourceAnalyzer,
         extract_prompt: str | None = None,
-    ) -> AsyncGenerator[Union[CrawlJob, ScrapeJob, ExtractJob], None]:
+        summarize_prompt: str | None = None,
+    ) -> AsyncGenerator[Union[CrawlJob, ScrapeJob, ExtractJob, SummarizeJob], None]:
         crawl_job = CrawlJob()
         self.jobs.append(crawl_job)
 
@@ -205,9 +190,6 @@ class Source:
 
                 pages_crawled += 1
 
-            # Note: Source summarization is now triggered automatically 
-            # when all extract jobs are approved, not at end of crawl
-            
             crawl_job.outcome = CrawlJobResult(
                 pages_crawled=pages_crawled,
                 total_pages_found=total_pages_found,
@@ -215,6 +197,27 @@ class Source:
             )
 
             yield crawl_job
+
+            # Start summarization job after crawling completes
+            # Build page summaries from all completed extract jobs
+            page_summaries = []
+            for page in self.pages:
+                for job in page.jobs:
+                    if (job.outcome and isinstance(job.outcome, ExtractJobResult)):
+                        page_summaries.append(
+                            f"Summary for {page.url}:\n\n"
+                            f"Summary:\n{job.outcome.summary}\n\n"
+                            f"Key Facts:\n{job.outcome.key_facts}\n\n"
+                            f"Key Quotes:\n{job.outcome.key_quotes}\n\n"
+                            f"Key Figures:\n{job.outcome.key_figures}\n\n"
+                            f"Trustworthiness:\n{job.outcome.trustworthiness}"
+                        )
+                        break  # Only take the first extract job per page
+
+            if page_summaries:
+                all_page_summaries = "\n\n".join(page_summaries)
+                async for summary_job in self.summarize_source(source_analyzer, all_page_summaries, summarize_prompt):
+                    yield summary_job
 
         except Exception as e:
             job_error = JobError(message=f"{traceback.format_exc()}\n{str(e)}")

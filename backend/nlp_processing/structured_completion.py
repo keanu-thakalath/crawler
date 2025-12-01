@@ -19,8 +19,8 @@ class DataclassProtocol(Protocol):
 T = TypeVar("T", bound=DataclassProtocol)
 
 class LiteLLMStructuredCompletion:
-    # def __init__(self, model="anthropic/claude-haiku-4-5-20251001"):
-    def __init__(self, model="anthropic/claude-sonnet-4-5-20250929"):
+    def __init__(self, model="anthropic/claude-haiku-4-5-20251001"):
+    # def __init__(self, model="anthropic/claude-sonnet-4-5-20250929"):
         self.model = model
 
         supported_params = get_supported_openai_params(model=self.model) or []
@@ -45,6 +45,7 @@ class LiteLLMStructuredCompletion:
                 "json_schema": {"schema": json_schema},
                 "strict": True,
             },
+            num_retries=2
         )
         content = msgspec.json.decode(resp.choices[0].message.content)
         try:

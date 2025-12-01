@@ -38,7 +38,7 @@ export default function Index() {
             name="maxPages"
             min="1"
             max="50"
-            value="15"
+            value="10"
           />
 
           <label for="extractPrompt">Custom Extract Prompt (Optional):</label>

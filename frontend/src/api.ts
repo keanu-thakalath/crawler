@@ -162,7 +162,7 @@ export async function getCrawledSources() {
       ...(await withAuth()),
     },
   });
-  return (await response.json()) as Source[];
+  return (await response.json()).toReversed() as Source[];
 }
 
 export async function getDiscoveredSources() {
@@ -290,4 +290,20 @@ export async function editJobSummary(jobId: string, summary: string) {
     throw new Error(json.detail);
   }
   return (await response.json()) as Job;
+}
+
+export async function deleteSource(sourceUrl: string) {
+  const response = await fetch(
+    `${BASE_URL}/source?source_url=${encodeURIComponent(sourceUrl)}`,
+    {
+      method: "DELETE",
+      headers: {
+        ...(await withAuth()),
+      },
+    }
+  );
+  if (!response.ok) {
+    const json = await response.json();
+    throw new Error(json.detail);
+  }
 }

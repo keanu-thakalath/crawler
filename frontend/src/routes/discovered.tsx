@@ -1,4 +1,10 @@
-import { createAsync, query, action, useSubmission, revalidate } from "@solidjs/router";
+import {
+  createAsync,
+  query,
+  action,
+  useSubmission,
+  revalidate,
+} from "@solidjs/router";
 import { For, Show, Suspense } from "solid-js";
 import * as api from "~/api";
 import { usePolling } from "~/utils/polling";
@@ -18,9 +24,28 @@ const crawlSourceAction = action(async (formData: FormData) => {
   return { success: true, message: `Crawl job started for ${url}!` };
 }, "crawlSource");
 
+const deleteSourceAction = action(async (formData: FormData) => {
+  const url = formData.get("url") as string;
+
+  if (!url) throw new Error("URL is required");
+
+  if (
+    !confirm(
+      `Are you sure you want to delete this source?\n\n${url}\n\nThis will permanently delete the source and all its data.`
+    )
+  ) {
+    return { cancelled: true };
+  }
+
+  await api.deleteSource(url);
+  revalidate(getDiscoveredSources.key);
+  return { success: true, message: `Source deleted successfully!` };
+}, "deleteSource");
+
 export default function Discovered() {
   const sources = createAsync(() => getDiscoveredSources());
   const crawlSubmission = useSubmission(crawlSourceAction);
+  const deleteSubmission = useSubmission(deleteSourceAction);
 
   usePolling(getDiscoveredSources.key);
 
@@ -91,69 +116,103 @@ export default function Discovered() {
                     </a>
                   </div>
 
-                  <form
-                    action={crawlSourceAction}
-                    method="post"
+                  <div
                     style={{
                       display: "flex",
                       "align-items": "center",
                       gap: "12px",
                     }}
                   >
-                    <input type="hidden" name="url" value={source.url} />
-
-                    <div
+                    <form
+                      action={crawlSourceAction}
+                      method="post"
                       style={{
                         display: "flex",
                         "align-items": "center",
-                        gap: "8px",
+                        gap: "12px",
                       }}
                     >
-                      <label
-                        for={`maxPages-${source.url}`}
+                      <input type="hidden" name="url" value={source.url} />
+
+                      <div
                         style={{
+                          display: "flex",
+                          "align-items": "center",
+                          gap: "8px",
+                        }}
+                      >
+                        <label
+                          for={`maxPages-${source.url}`}
+                          style={{
+                            "font-size": "0.9em",
+                            "white-space": "nowrap",
+                          }}
+                        >
+                          Max Pages:
+                        </label>
+                        <input
+                          id={`maxPages-${source.url}`}
+                          type="number"
+                          name="maxPages"
+                          min="1"
+                          max="50"
+                          value="10"
+                          style={{
+                            width: "50px",
+                            padding: "4px",
+                            "font-size": "0.9em",
+                          }}
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={crawlSubmission.pending}
+                        aria-busy={crawlSubmission.pending}
+                        style={{
+                          padding: "6px 12px",
+                          "background-color": "#28a745",
+                          color: "white",
+                          border: "none",
+                          "border-radius": "4px",
+                          cursor: crawlSubmission.pending
+                            ? "not-allowed"
+                            : "pointer",
+                          opacity: crawlSubmission.pending ? "0.7" : "1",
                           "font-size": "0.9em",
                           "white-space": "nowrap",
                         }}
                       >
-                        Max Pages:
-                      </label>
-                      <input
-                        id={`maxPages-${source.url}`}
-                        type="number"
-                        name="maxPages"
-                        min="1"
-                        max="50"
-                        value="15"
-                        style={{
-                          width: "50px",
-                          padding: "4px",
-                          "font-size": "0.9em",
-                        }}
-                      />
-                    </div>
+                        {crawlSubmission.pending
+                          ? "Starting..."
+                          : "Start Crawl"}
+                      </button>
+                    </form>
 
-                    <button
-                      type="submit"
-                      disabled={crawlSubmission.pending}
-                      aria-busy={crawlSubmission.pending}
-                      style={{
-                        padding: "6px 12px",
-                        "background-color": "#28a745",
-                        color: "white",
-                        border: "none",
-                        "border-radius": "4px",
-                        cursor: crawlSubmission.pending
-                          ? "not-allowed"
-                          : "pointer",
-                        opacity: crawlSubmission.pending ? "0.7" : "1",
-                        "font-size": "0.9em",
-                        "white-space": "nowrap",
-                      }}
-                    >
-                      {crawlSubmission.pending ? "Starting..." : "Start Crawl"}
-                    </button>
-                  </form>
+                    <form action={deleteSourceAction} method="post">
+                      <input type="hidden" name="url" value={source.url} />
+                      <button
+                        type="submit"
+                        disabled={deleteSubmission.pending}
+                        aria-busy={deleteSubmission.pending}
+                        style={{
+                          padding: "6px 12px",
+                          "background-color": "#dc3545",
+                          color: "white",
+                          border: "none",
+                          "border-radius": "4px",
+                          cursor: deleteSubmission.pending
+                            ? "not-allowed"
+                            : "pointer",
+                          opacity: deleteSubmission.pending ? "0.7" : "1",
+                          "font-size": "0.9em",
+                          "white-space": "nowrap",
+                        }}
+                      >
+                        {deleteSubmission.pending ? "Deleting..." : "Delete"}
+                      </button>
+                    </form>
+                  </div>
                 </div>
               )}
             </For>
@@ -186,6 +245,36 @@ export default function Discovered() {
               }}
             >
               ✓ {crawlSubmission.result?.message}
+            </div>
+          </Show>
+
+          <Show when={deleteSubmission.error}>
+            <div
+              style={{
+                "margin-top": "12px",
+                color: "#dc3545",
+                "font-size": "14px",
+                padding: "8px",
+                "background-color": "#f8d7da",
+                "border-radius": "4px",
+              }}
+            >
+              Error: {deleteSubmission.error.message}
+            </div>
+          </Show>
+
+          <Show when={deleteSubmission.result?.success}>
+            <div
+              style={{
+                "margin-top": "12px",
+                color: "#dc3545",
+                "font-size": "14px",
+                padding: "8px",
+                "background-color": "#f8d7da",
+                "border-radius": "4px",
+              }}
+            >
+              ✓ {deleteSubmission.result?.message}
             </div>
           </Show>
         </Show>
