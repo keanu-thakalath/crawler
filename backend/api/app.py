@@ -131,6 +131,15 @@ async def edit_job_summary_endpoint(
         raise ClientException(status_code=HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
+@delete("/source")
+async def delete_source_endpoint(source_url: str, uow: UnitOfWork) -> None:
+    """Delete source and all associated data (pages, jobs, job results)."""
+    try:
+        await services.delete_source(source_url, uow)
+    except SourceNotFoundError as e:
+        raise ClientException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+
 @delete("/reset")
 async def reset_database_endpoint(state: State) -> None:
     """Reset the database by dropping and recreating all tables."""
@@ -154,6 +163,7 @@ app = Litestar(
         get_discovered_sources_endpoint,
         get_in_progress_sources_endpoint,
         get_source_endpoint,
+        delete_source_endpoint,
         get_page_endpoint,
         approve_job_endpoint,
         edit_job_summary_endpoint,

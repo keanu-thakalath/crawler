@@ -1,4 +1,4 @@
-import { createAsync, query } from "@solidjs/router";
+import { createAsync, query, action, useSubmission, revalidate } from "@solidjs/router";
 import { For, Show, Suspense, createMemo } from "solid-js";
 import * as api from "~/api";
 import { usePolling } from "~/utils/polling";
@@ -6,6 +6,20 @@ import { usePolling } from "~/utils/polling";
 const getInProgressSources = query(async () => {
   return await api.getInProgressSources();
 }, "inProgressSources");
+
+const deleteSourceAction = action(async (formData: FormData) => {
+  const url = formData.get("url") as string;
+
+  if (!url) throw new Error("URL is required");
+  
+  if (!confirm(`Are you sure you want to delete this source?\n\n${url}\n\nThis will permanently delete the source and all its data.`)) {
+    return { cancelled: true };
+  }
+
+  await api.deleteSource(url);
+  revalidate(getInProgressSources.key);
+  return { success: true, message: `Source deleted successfully!` };
+}, "deleteSource");
 
 interface InProgressSourceData {
   url: string;
@@ -17,6 +31,7 @@ interface InProgressSourceData {
 
 export default function InProgress() {
   const sources = createAsync(() => getInProgressSources());
+  const deleteSubmission = useSubmission(deleteSourceAction);
 
   usePolling(getInProgressSources.key);
 
@@ -195,10 +210,66 @@ export default function InProgress() {
                         {new Date(data.latestJobCreatedAt).toLocaleString()}
                       </div>
                     </Show>
+
+                    <div style={{ "margin-left": "auto" }}>
+                      <form action={deleteSourceAction} method="post">
+                        <input type="hidden" name="url" value={data.url} />
+                        <button
+                          type="submit"
+                          disabled={deleteSubmission.pending}
+                          aria-busy={deleteSubmission.pending}
+                          style={{
+                            padding: "6px 12px",
+                            "background-color": "#dc3545",
+                            color: "white",
+                            border: "none",
+                            "border-radius": "4px",
+                            cursor: deleteSubmission.pending
+                              ? "not-allowed"
+                              : "pointer",
+                            opacity: deleteSubmission.pending ? "0.7" : "1",
+                            "font-size": "0.9em",
+                            "white-space": "nowrap",
+                          }}
+                        >
+                          {deleteSubmission.pending ? "Deleting..." : "Delete"}
+                        </button>
+                      </form>
+                    </div>
                   </div>
                 </div>
               )}
             </For>
+          </div>
+        </Show>
+
+        <Show when={deleteSubmission.error}>
+          <div
+            style={{
+              "margin-top": "12px",
+              color: "#dc3545",
+              "font-size": "14px",
+              padding: "8px",
+              "background-color": "#f8d7da",
+              "border-radius": "4px",
+            }}
+          >
+            Error: {deleteSubmission.error.message}
+          </div>
+        </Show>
+
+        <Show when={deleteSubmission.result?.success}>
+          <div
+            style={{
+              "margin-top": "12px",
+              color: "#28a745",
+              "font-size": "14px",
+              padding: "8px",
+              "background-color": "#d4edda",
+              "border-radius": "4px",
+            }}
+          >
+            ✓ {deleteSubmission.result?.message}
           </div>
         </Show>
       </Suspense>

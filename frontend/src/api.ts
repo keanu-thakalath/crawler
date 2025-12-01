@@ -291,3 +291,19 @@ export async function editJobSummary(jobId: string, summary: string) {
   }
   return (await response.json()) as Job;
 }
+
+export async function deleteSource(sourceUrl: string) {
+  const response = await fetch(
+    `${BASE_URL}/source?source_url=${encodeURIComponent(sourceUrl)}`,
+    {
+      method: "DELETE",
+      headers: {
+        ...(await withAuth()),
+      },
+    }
+  );
+  if (!response.ok) {
+    const json = await response.json();
+    throw new Error(json.detail);
+  }
+}
