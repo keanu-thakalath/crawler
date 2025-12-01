@@ -29,8 +29,8 @@ async def _completion_with_retry(model, messages, response_format):
             )
         except AnthropicError as e:
             if attempt < max_retries - 1:
-                logger.warning(f"AnthropicError on attempt {attempt + 1}: {e}. Retrying in 60 seconds...")
-                await asyncio.sleep(60)
+                logger.warning(f"AnthropicError on attempt {attempt + 1}: {e}. Retrying in 120 seconds...")
+                await asyncio.sleep(120)
                 continue
             else:
                 logger.error(f"AnthropicError failed after {max_retries} attempts: {e}")
