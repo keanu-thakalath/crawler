@@ -6,7 +6,6 @@ from typing import Any, ClassVar, Protocol, Type, TypeVar
 import msgspec
 from dotenv import load_dotenv
 from litellm import completion, get_supported_openai_params, supports_response_schema
-from litellm.llms.anthropic.common_utils import AnthropicError
 
 from domain.values import LLMResponseMetadata
 
@@ -27,13 +26,13 @@ async def _completion_with_retry(model, messages, response_format):
                 messages=messages,
                 response_format=response_format,
             )
-        except AnthropicError as e:
+        except Exception as e:
             if attempt < max_retries - 1:
-                logger.warning(f"AnthropicError on attempt {attempt + 1}: {e}. Retrying in 120 seconds...")
+                logger.warning(f"Exception on attempt {attempt + 1}: {e}. Retrying in 120 seconds...")
                 await asyncio.sleep(120)
                 continue
             else:
-                logger.error(f"AnthropicError failed after {max_retries} attempts: {e}")
+                logger.error(f"Exception failed after {max_retries} attempts: {e}")
                 raise
 
 

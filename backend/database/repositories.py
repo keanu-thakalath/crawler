@@ -285,22 +285,20 @@ class SqlAlchemySourceRepository(SourceRepository):
         return sources
 
     async def get_in_progress_sources(self) -> List[Source]:
-        """Get sources with jobs but no completed crawl results."""
-        # Sources that have any jobs
-        has_jobs_subq = exists().where(Job.source_url == Source.url)
-        
-        # But no completed crawl jobs
-        no_crawl_results_subq = ~exists().where(
+        """Get sources with at least one incomplete job (job.outcome is None)."""
+        # Sources that have at least one incomplete job (no outcome)
+        incomplete_jobs_subq = exists().where(
             and_(
                 Job.source_url == Source.url,
-                Job.page_url.is_(None),
-                Job._crawl_result.has()
+                ~Job._error.has(),
+                ~Job._scrape_result.has(), 
+                ~Job._extract_result.has(),
+                ~Job._summarize_result.has(),
+                ~Job._crawl_result.has()
             )
         )
 
-        stmt = select(Source).where(
-            and_(has_jobs_subq, no_crawl_results_subq)
-        ).options(
+        stmt = select(Source).where(incomplete_jobs_subq).options(
             selectinload(Source.jobs).selectinload(Job._error),
             selectinload(Source.jobs).selectinload(Job._scrape_result),
             selectinload(Source.jobs).selectinload(Job._extract_result),
