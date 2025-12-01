@@ -288,9 +288,8 @@ async def crawl_source(source_url: str, max_pages: int, uow: UnitOfWork, extract
     source = await uow.sources.get(source_url)
     if not source:
         raise SourceNotFoundError(source_url)
-    for job in source.jobs:
-        if isinstance(job.outcome, SummarizeJobResult):
-            return
+    if source.jobs:
+        return
 
     async for job in source.crawl_source(
         max_pages,
