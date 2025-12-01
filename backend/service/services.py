@@ -81,10 +81,11 @@ async def list_sources(uow: UnitOfWork) -> list[Source]:
 
 async def get_unreviewed_jobs(uow: UnitOfWork) -> List[Source]:
     """Get sources with pages containing only unreviewed extract/summarize jobs."""
-    all_sources = await uow.sources.list_all()
-    filtered_sources = []
+    sources = await uow.sources.get_sources_with_unreviewed_jobs()
     
-    for source in all_sources:
+    # Filter jobs to only include unreviewed ones to match original behavior
+    filtered_sources = []
+    for source in sources:
         # Filter source-level jobs to only unreviewed ones
         source_jobs = []
         for job in source.jobs:
@@ -116,10 +117,11 @@ async def get_unreviewed_jobs(uow: UnitOfWork) -> List[Source]:
 
 async def get_failed_jobs(uow: UnitOfWork) -> List[Source]:
     """Get sources with pages containing only failed jobs."""
-    all_sources = await uow.sources.list_all()
-    filtered_sources = []
+    sources = await uow.sources.get_sources_with_failed_jobs()
     
-    for source in all_sources:
+    # Filter jobs to only include failed ones to match original behavior
+    filtered_sources = []
+    for source in sources:
         # Filter source-level jobs to only failed ones
         source_jobs = []
         for job in source.jobs:
@@ -148,54 +150,18 @@ async def get_failed_jobs(uow: UnitOfWork) -> List[Source]:
 
 
 async def get_crawled_sources(uow: UnitOfWork) -> List[Source]:
-    """Get sources with completed and reviewed summarize jobs. No pages included."""
-    all_sources = await uow.sources.list_all()
-    crawled_sources = []
-    
-    for source in all_sources:
-        # Check if source has a completed summarize job
-        for job in source.jobs:
-            if isinstance(job.outcome, CrawlJobResult):
-                # Create new source without pages
-                crawled_source = Source(url=source.url, jobs=source.jobs, pages=[])
-                crawled_sources.append(crawled_source)
-                break  # Only need one approved summarize job
-    
-    return crawled_sources
+    """Get sources with completed crawl jobs. No pages included."""
+    return await uow.sources.get_crawled_sources()
 
 
 async def get_discovered_sources(uow: UnitOfWork) -> List[Source]:
     """Get sources with no crawl job (discovered via external links). No pages included."""
-    all_sources = await uow.sources.list_all()
-    discovered_sources = []
-    
-    for source in all_sources:
-        # Check if source has any crawl job
-        has_crawl_job = len(source.jobs) != 0
-        
-        if not has_crawl_job:
-            # Create new source without pages
-            discovered_source = Source(url=source.url, jobs=source.jobs, pages=[])
-            discovered_sources.append(discovered_source)
-    
-    return discovered_sources
+    return await uow.sources.get_discovered_sources()
 
 
 async def get_in_progress_sources(uow: UnitOfWork) -> List[Source]:
     """Get sources with jobs but no CrawlJobResult (crawl in progress). No pages included."""
-    all_sources = await uow.sources.list_all()
-    in_progress_sources = []
-    
-    for source in all_sources:
-        # Check if source has any in-progress job
-        has_in_progress_job = any(job.outcome is None for job in source.jobs)
-        
-        if has_in_progress_job:
-            # Create new source without pages
-            in_progress_source = Source(url=source.url, jobs=source.jobs, pages=[])
-            in_progress_sources.append(in_progress_source)
-    
-    return in_progress_sources
+    return await uow.sources.get_in_progress_sources()
 
 
 async def get_source_only(source_url: str, uow: UnitOfWork) -> Source:

@@ -162,7 +162,7 @@ export async function getCrawledSources() {
       ...(await withAuth()),
     },
   });
-  return (await response.json()) as Source[];
+  return (await response.json()).toReversed() as Source[];
 }
 
 export async function getDiscoveredSources() {
