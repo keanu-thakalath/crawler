@@ -284,10 +284,13 @@ async def summarize_source(
     return job
 
 
-async def crawl_source(source_url: str, max_pages: int, uow: UnitOfWork, extract_prompt: str | None = None, summarize_prompt: str | None = None) -> CrawlJob:
+async def crawl_source(source_url: str, max_pages: int, uow: UnitOfWork, extract_prompt: str | None = None, summarize_prompt: str | None = None) -> CrawlJob | None:
     source = await uow.sources.get(source_url)
     if not source:
         raise SourceNotFoundError(source_url)
+    for job in source.jobs:
+        if isinstance(job.outcome, SummarizeJobResult):
+            return
 
     async for job in source.crawl_source(
         max_pages,
