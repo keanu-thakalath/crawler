@@ -184,9 +184,12 @@ class Source:
 
                     if isinstance(extract_job.outcome, ExtractJobResult):
                         # Add next internal link selected by LLM to queue
-                        if extract_job.outcome.next_internal_link:
-                            if extract_job.outcome.next_internal_link not in processed_pages:
-                                url_queue.append(extract_job.outcome.next_internal_link)
+                        next_link = extract_job.outcome.next_internal_link
+                        if next_link and next_link not in processed_pages:
+                            url_queue.append(next_link)
+                        elif filtered_candidate_links:
+                            # If LLM's choice is already processed, use first available candidate
+                            url_queue.append(filtered_candidate_links[0])
 
                 pages_crawled += 1
 
