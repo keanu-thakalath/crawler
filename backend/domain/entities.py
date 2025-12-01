@@ -3,6 +3,7 @@ import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import AsyncGenerator, Generic, List, Optional, TypeVar, Union
+from urllib.parse import urlparse, urlunparse
 
 from nlp_processing.page_summarizer import PageSummarizer
 from nlp_processing.source_analyzer import SourceAnalyzer
@@ -22,6 +23,15 @@ from .values import (
 
 TJobResult = TypeVar("TJobResult", bound=JobResult)
 Outcome = Optional[Union[JobError, TJobResult]]
+
+
+def _remove_url_fragment(url: NormalizedUrl) -> NormalizedUrl:
+    """Remove URL fragment (anchor) from a URL."""
+    parsed = urlparse(str(url))
+    # Remove fragment by setting it to empty string
+    without_fragment = urlunparse((parsed.scheme, parsed.netloc, parsed.path, 
+                                  parsed.params, parsed.query, ''))
+    return NormalizedUrl(without_fragment)
 
 
 @dataclass(kw_only=True)
@@ -168,10 +178,11 @@ class Source:
                             candidate_internal_links.append(internal_link)
                             total_pages_found += 1
 
-                    # Filter candidate links to exclude processed pages
+                    # Filter candidate links to exclude processed pages and anchor links to processed pages
+                    processed_pages_without_fragments = {_remove_url_fragment(page) for page in processed_pages}
                     filtered_candidate_links = [
                         link for link in candidate_internal_links 
-                        if link not in processed_pages
+                        if link not in processed_pages and _remove_url_fragment(link) not in processed_pages_without_fragments
                     ]
 
                     async for extract_job in current_page.extract_page(
@@ -185,11 +196,8 @@ class Source:
                     if isinstance(extract_job.outcome, ExtractJobResult):
                         # Add next internal link selected by LLM to queue
                         next_link = extract_job.outcome.next_internal_link
-                        if next_link and next_link not in processed_pages:
+                        if next_link and next_link in filtered_candidate_links:
                             url_queue.append(next_link)
-                        elif filtered_candidate_links:
-                            # If LLM's choice is already processed, use first available candidate
-                            url_queue.append(filtered_candidate_links[0])
 
                 pages_crawled += 1
 
