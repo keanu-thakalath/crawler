@@ -1,15 +1,40 @@
+import asyncio
+import logging
 from dataclasses import Field
 from typing import Any, ClassVar, Protocol, Type, TypeVar
 
 import msgspec
 from dotenv import load_dotenv
 from litellm import completion, get_supported_openai_params, supports_response_schema
+from litellm.llms.anthropic.common_utils import AnthropicError
 
 from domain.values import LLMResponseMetadata
 
 from .exceptions import UnsupportedModelError
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+
+async def _completion_with_retry(model, messages, response_format):
+    """Wrapper around litellm.completion with AnthropicError retry logic."""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            return completion(
+                model=model,
+                messages=messages,
+                response_format=response_format,
+            )
+        except AnthropicError as e:
+            if attempt < max_retries - 1:
+                logger.warning(f"AnthropicError on attempt {attempt + 1}: {e}. Retrying in 60 seconds...")
+                await asyncio.sleep(60)
+                continue
+            else:
+                logger.error(f"AnthropicError failed after {max_retries} attempts: {e}")
+                raise
 
 
 class DataclassProtocol(Protocol):
@@ -37,7 +62,7 @@ class LiteLLMStructuredCompletion:
     ) -> tuple[T, LLMResponseMetadata]:
         json_schema = msgspec.json.schema(response_type)
 
-        resp = completion(
+        resp = await _completion_with_retry(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
             response_format={
@@ -45,7 +70,6 @@ class LiteLLMStructuredCompletion:
                 "json_schema": {"schema": json_schema},
                 "strict": True,
             },
-            num_retries=2
         )
         content = msgspec.json.decode(resp.choices[0].message.content)
         try:
@@ -55,7 +79,7 @@ class LiteLLMStructuredCompletion:
                 prompt=prompt,
                 model=self.model,
             )
-        except msgspec.ValidationError as e:
+        except msgspec.ValidationError:
             content = content[list(content.keys())[0]]
             return msgspec.convert(content, response_type), LLMResponseMetadata(
                 input_tokens=resp.usage.prompt_tokens,
