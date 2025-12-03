@@ -1,7 +1,7 @@
 "use server";
 import { getAuthToken } from "./utils/auth";
 
-const BASE_URL = process.env.BACKEND_URL;
+const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
 // Enums from backend domain models
 export enum DataOrigin {
@@ -130,6 +130,16 @@ export interface Source {
 
 export interface TokenResponse {
   token: string;
+}
+
+// Chat request interface for backend API
+export interface ChatRequest {
+  messages: Array<{
+    role: string;
+    content: string;
+    function_call?: Record<string, any>;
+    tool_calls?: Record<string, any>[];
+  }>;
 }
 
 async function withAuth() {

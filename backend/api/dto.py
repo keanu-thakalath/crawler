@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import List, Optional, Dict, Any
 
 from .auth import Token
 
@@ -43,3 +44,18 @@ class EditJobSummaryRequest:
 @dataclass
 class TokenResponse:
     token: Token
+
+
+@dataclass
+class ChatMessageDTO:
+    """DTO for a single chat message."""
+    role: str
+    content: str
+    function_call: Optional[Dict[str, Any]] = None
+    tool_calls: Optional[List[Dict[str, Any]]] = None
+
+
+@dataclass
+class ChatRequest:
+    """DTO for chat request containing message history."""
+    messages: List[ChatMessageDTO]

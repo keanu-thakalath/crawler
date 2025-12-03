@@ -13,6 +13,9 @@ function Layout(props: any) {
             <A href="/">Home</A>
           </li>
           <li>
+            <A href="/chat">Chat</A>
+          </li>
+          <li>
             <A href="/approvals">Approvals</A>
           </li>
 
