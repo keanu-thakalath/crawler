@@ -1,6 +1,8 @@
-from typing import List
+from typing import List, AsyncGenerator
 
 from litestar import Litestar, delete, get, patch, post
+from litestar.response import ServerSentEvent
+from litestar.types import SSEData
 from litestar.config.cors import CORSConfig
 from litestar.datastructures import State
 from litestar.exceptions import ClientException
@@ -11,7 +13,6 @@ from litestar.middleware import DefineMiddleware
 from litestar.status_codes import (
     HTTP_400_BAD_REQUEST,
     HTTP_404_NOT_FOUND,
-    HTTP_409_CONFLICT,
 )
 
 from .auth import AuthenticationMiddleware, Key, exchange_key, InvalidKeyError
@@ -20,6 +21,7 @@ from .dto import (
     CrawlRequest,
     EditJobSummaryRequest,
     TokenResponse,
+    ChatRequest,
 )
 from .lifespan import db_connection
 from database.models import metadata
@@ -34,6 +36,8 @@ from service.exceptions import (
     SourceNotFoundError,
 )
 from service.unit_of_work import UnitOfWork
+from service.chatbot_service import ChatbotService
+from nlp_processing.chatbot import LiteLLMChatbot, ChatMessage
 
 
 @get("/sources/unreviewed-jobs")
@@ -149,6 +153,43 @@ async def reset_database_endpoint(state: State) -> None:
         await conn.run_sync(metadata.create_all)
 
 
+async def _chat_stream_generator(messages: List[ChatMessage], uow: UnitOfWork) -> AsyncGenerator[SSEData, None]:
+    """Generator function for chat streaming."""
+    try:
+        # Create chatbot and service
+        chatbot = LiteLLMChatbot()
+        chatbot_service = ChatbotService(uow)
+        
+        # Stream the response
+        async for response_chunk in chatbot.chat_stream(messages, chatbot_service):
+            if response_chunk.content:
+                yield {"data": response_chunk.content, "event": "message"}
+            elif response_chunk.function_calls:
+                yield {"data": str(response_chunk.function_calls), "event": "function_call"}
+            elif response_chunk.is_complete:
+                yield {"data": "", "event": "complete"}
+    
+    except Exception as e:
+        yield {"data": f"Error: {str(e)}", "event": "error"}
+
+
+@post("/chat/stream", sync_to_thread=False)
+async def chat_stream_endpoint(data: ChatRequest, uow: UnitOfWork) -> ServerSentEvent:
+    """Stream a chat response based on message history."""
+    # Convert DTOs to domain objects
+    messages = [
+        ChatMessage(
+            role=msg.role,
+            content=msg.content,
+            function_call=msg.function_call,
+            tool_calls=msg.tool_calls
+        )
+        for msg in data.messages
+    ]
+    
+    return ServerSentEvent(_chat_stream_generator(messages, uow))
+
+
 cors_config = CORSConfig()
 
 auth_mw = DefineMiddleware(AuthenticationMiddleware, exclude=["schema", "exchange_key"])
@@ -168,6 +209,7 @@ app = Litestar(
         approve_job_endpoint,
         edit_job_summary_endpoint,
         reset_database_endpoint,
+        chat_stream_endpoint,
     ],
     openapi_config=OpenAPIConfig(
         title="Crawler Demo",
